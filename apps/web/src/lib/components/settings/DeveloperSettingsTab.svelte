@@ -15,6 +15,7 @@
 	import { getLocaleTag } from '$lib/i18n';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
 	import { showToast } from '$lib/toast';
+	import { writeClipboardText } from '$lib/clipboard';
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
 	import AsyncActionButton from '$lib/components/async-action-button.svelte';
@@ -320,9 +321,10 @@
 			createdAPIToken === token;
 		if (!userID || !isCurrentRequest()) return;
 		try {
-			await navigator.clipboard.writeText(token);
+			await writeClipboardText(token);
 			if (!isCurrentRequest()) return;
 			apiTokenCopyState = 'copied';
+			apiTokenError = '';
 			clearTimeout(apiTokenCopyResetTimer);
 			apiTokenCopyResetTimer = setTimeout(() => {
 				if (isCurrentRequest()) apiTokenCopyState = 'idle';
@@ -652,9 +654,14 @@
 		data-feedback-redact
 	>
 		<p class="font-medium">{m.settings_copy_token_now()}</p>
-		<p class="mt-2 font-mono text-xs break-all" aria-label={m.settings_token_secret_label()}>
-			{createdAPIToken}
-		</p>
+		<Input
+			class="mt-2 font-mono text-xs"
+			value={createdAPIToken}
+			readonly
+			aria-label={m.settings_token_secret_label()}
+			onclick={(event) => event.currentTarget.select()}
+			onfocus={(event) => event.currentTarget.select()}
+		/>
 		<AsyncActionButton
 			type="button"
 			variant="outline"

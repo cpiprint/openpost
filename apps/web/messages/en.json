@@ -3151,7 +3151,7 @@
 	"settings_copy_token_now": "Copy this token now. It will not be shown again.",
 	"settings_token_secret_label": "New API token",
 	"settings_token_copy_success": "API token copied.",
-	"settings_token_copy_failed": "The token could not be copied. Copy it manually before closing this message.",
+	"settings_token_copy_failed": "Clipboard access was blocked. Select the token above and press Cmd/Ctrl+C, or allow clipboard access for this site and try again.",
 	"settings_token_creation_pending": "Wait for the API token to finish creating before leaving this page.",
 	"settings_token_name_required": "Enter a name that identifies this token.",
 	"settings_token_expiry": "Expiration",

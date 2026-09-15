@@ -6,6 +6,7 @@ describe('copy feedback', () => {
 	afterEach(() => vi.restoreAllMocks());
 	it('only confirms a completed clipboard write and offers retry on failure', async () => {
 		let finish!: () => void;
+		vi.spyOn(document, 'execCommand').mockReturnValue(false);
 		const write = vi
 			.spyOn(navigator.clipboard, 'writeText')
 			.mockImplementationOnce(
@@ -45,10 +46,18 @@ describe('copy feedback', () => {
 					finish = resolve;
 				})
 		);
-		const props = { value: 'first link', scopeKey: 'workspace-1', errorMessage: 'Copy manually.' };
+		const props = {
+			value: 'first link',
+			scopeKey: 'workspace-1',
+			errorMessage: 'Copy manually.'
+		};
 		const screen = await render(CopyButton, props);
 		await screen.getByRole('button', { name: 'Copy', exact: true }).click();
-		await screen.rerender({ ...props, value: 'second link', scopeKey: 'workspace-2' });
+		await screen.rerender({
+			...props,
+			value: 'second link',
+			scopeKey: 'workspace-2'
+		});
 		finish();
 		await expect
 			.element(screen.getByRole('button', { name: 'Copy', exact: true }))

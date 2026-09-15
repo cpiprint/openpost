@@ -76,6 +76,13 @@
 		}
 	}
 
+	function selectWorkspaceImage(mediaIDs: string[]): boolean {
+		const mediaID = mediaIDs[0];
+		if (!mediaID) return false;
+		workspaceCtx.settings.avatar_url = `/media/${mediaID}`;
+		return true;
+	}
+
 	$effect(() => {
 		const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
 		if (workspaceID && workspaceID !== loadedWorkspaceID) void loadBrandColors(workspaceID);
@@ -102,10 +109,10 @@
 				multiple={false}
 				purpose="media_library"
 				showCreate={false}
+				initialMode="upload"
+				autoConfirmUploads={true}
 				title={m.settings_workspace_image_url()}
-				onConfirm={(ids) => {
-					if (ids[0]) workspaceCtx.settings.avatar_url = `/media/${ids[0]}`;
-				}}
+				onConfirm={selectWorkspaceImage}
 			/>
 		{/if}
 		<div class="flex flex-col gap-4 sm:flex-row sm:items-center">

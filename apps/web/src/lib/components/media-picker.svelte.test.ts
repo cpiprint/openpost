@@ -178,6 +178,29 @@ describe('MediaPicker meme source', () => {
 		expect(onConfirm).toHaveBeenCalledTimes(2);
 	});
 
+	it('opens upload-first pickers on the device source', async () => {
+		const screen = await render(MediaPicker, {
+			props: {
+				open: true,
+				workspaceId: 'workspace-1',
+				accept: ['image/*'],
+				maxSelection: 1,
+				multiple: false,
+				showCreate: false,
+				initialMode: 'upload',
+				services,
+				onConfirm: vi.fn()
+			}
+		});
+
+		await expect
+			.element(screen.getByRole('tab', { name: 'Device' }))
+			.toHaveAttribute('aria-selected', 'true');
+		await expect
+			.element(screen.getByText('Drop files here or choose from your device'))
+			.toBeVisible();
+	});
+
 	it('keeps Meme hidden when the renderer is not configured', async () => {
 		mocks.listTemplates.mockResolvedValue(templateResult(false));
 		const screen = await renderPicker(true);
