@@ -5,6 +5,74 @@ const youtube = { id: 'yt-1', platform: 'youtube', account_username: 'OpenPost' 
 const tiktok = { id: 'tt-1', platform: 'tiktok', account_username: 'openpost' };
 
 describe('publication composer payloads', () => {
+	it('keeps inline URLs in media posts without serializing native link settings', () => {
+		const accounts = [
+			{ id: 'threads-1', platform: 'threads', account_username: 'openpost' },
+			{ id: 'x-1', platform: 'x', account_username: 'openpost' },
+			{ id: 'mastodon-1', platform: 'mastodon', account_username: 'openpost' },
+			{ id: 'linkedin-1', platform: 'linkedin', account_username: 'OpenPost' }
+		];
+		const payload = buildPublicationPayload({
+			mode: 'post',
+			workspaceId: 'ws-1',
+			accounts,
+			fields: { postText: 'Release notes https://example.com' },
+			media: [{ id: 'image-1', mimeType: 'image/jpeg' }],
+			resolvedByAccount: Object.fromEntries(
+				accounts.map((account) => [
+					account.id,
+					{ profile: 'image_post', outputProfile: `${account.platform}.image` }
+				])
+			),
+			settingsByAccount: Object.fromEntries(
+				accounts.map((account) => [
+					account.id,
+					{ url: 'https://example.com', reply_settings: 'everyone' }
+				])
+			)
+		});
+
+		expect(payload.renditions).toHaveLength(4);
+		for (const rendition of payload.renditions) {
+			expect(rendition.body).toContain('https://example.com');
+			expect(rendition.settings).toEqual({ reply_settings: 'everyone' });
+		}
+	});
+
+	it('clears stale native link settings after an inline URL is removed', () => {
+		const payload = buildPublicationPayload({
+			mode: 'post',
+			workspaceId: 'ws-1',
+			accounts: [{ id: 'x-1', platform: 'x', account_username: 'openpost' }],
+			fields: { postText: 'Release notes without the old link' },
+			media: [{ id: 'image-1', mimeType: 'image/jpeg' }],
+			resolvedByAccount: {
+				'x-1': { profile: 'image_post', outputProfile: 'x.image' }
+			},
+			settingsByAccount: { 'x-1': { url: 'https://example.com' } }
+		});
+
+		expect(payload.renditions[0].settings).toEqual({});
+	});
+
+	it('keeps the native link setting for a link-only publication', () => {
+		const payload = buildPublicationPayload({
+			mode: 'post',
+			workspaceId: 'ws-1',
+			accounts: [{ id: 'x-1', platform: 'x', account_username: 'openpost' }],
+			fields: {
+				postText: 'Read the release notes https://example.com',
+				linkUrl: 'https://example.com'
+			},
+			media: [],
+			resolvedByAccount: {
+				'x-1': { profile: 'link_share', outputProfile: 'x.post' }
+			}
+		});
+
+		expect(payload.renditions[0].settings).toEqual({ url: 'https://example.com' });
+	});
+
 	it('maps required video metadata and explicit destination choices from the shared composer', () => {
 		const payload = buildPublicationPayload({
 			mode: 'post',

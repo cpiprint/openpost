@@ -502,6 +502,7 @@ func (s *Service) publishRendition(
 	if err != nil {
 		return err
 	}
+	settings = capabilities.NormalizeMediaTextLinkSettings(account.Platform, len(mediaAttachments), settings)
 
 	if err := s.hydratePublicSettingMediaURLs(ctx, publication.WorkspaceID, account.Platform, settings); err != nil {
 		return err
@@ -536,7 +537,7 @@ func (s *Service) publishRendition(
 		OutputProfile:    rendition.OutputProfile,
 		Title:            firstNonEmptyPublisherString(rendition.Title, publication.Title),
 		Description:      rendition.Description,
-		SettingsJSON:     rendition.SettingsJSON,
+		SettingsJSON:     mustPublisherJSON(settings),
 		Settings:         settings,
 		PlatformMediaIDs: platformMediaIDs,
 		MediaAltTexts:    mediaAltTexts,
@@ -680,11 +681,12 @@ func (s *Service) publishRenditionSegments(
 		segmentSettings := map[string]interface{}{}
 		_ = json.Unmarshal([]byte(segment.SettingsJSON), &segmentSettings)
 		settings := mergePublisherSettings(destinationSettings, segmentSettings)
-		if err := s.hydratePublicSettingMediaURLs(ctx, publication.WorkspaceID, account.Platform, settings); err != nil {
-			return s.failRenditionSegment(ctx, segment, err)
-		}
 		mediaAttachments, mediaAltTexts, mediaSettings, err := s.loadRenditionSegmentMedia(ctx, segment.ID)
 		if err != nil {
+			return s.failRenditionSegment(ctx, segment, err)
+		}
+		settings = capabilities.NormalizeMediaTextLinkSettings(account.Platform, len(mediaAttachments), settings)
+		if err := s.hydratePublicSettingMediaURLs(ctx, publication.WorkspaceID, account.Platform, settings); err != nil {
 			return s.failRenditionSegment(ctx, segment, err)
 		}
 		platformMediaIDs := make([]string, 0, len(mediaAttachments))

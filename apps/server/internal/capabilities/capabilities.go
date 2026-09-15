@@ -1430,8 +1430,35 @@ func Validate(provider, profile, body, title, description string, media []MediaI
 	return validateCapability(capability, body, title, description, media, settings)
 }
 
+// NormalizeMediaTextLinkSettings removes native link fields that cannot be
+// combined with media on providers that accept a URL in post text instead.
+// It also keeps existing publications with stale settings publishable.
+func NormalizeMediaTextLinkSettings(provider string, mediaCount int, settings map[string]any) map[string]any {
+	if mediaCount == 0 || len(settings) == 0 {
+		return settings
+	}
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case ProviderX, ProviderThreads, ProviderMastodon, ProviderLinkedIn:
+		if _, hasURL := settings["url"]; !hasURL {
+			if _, hasLinkURL := settings["link_url"]; !hasLinkURL {
+				return settings
+			}
+		}
+		normalized := make(map[string]any, len(settings))
+		for key, value := range settings {
+			normalized[key] = value
+		}
+		delete(normalized, "url")
+		delete(normalized, "link_url")
+		return normalized
+	default:
+		return settings
+	}
+}
+
 func ValidateOutput(provider, outputProfile, fallbackProfile, body, title, description string, media []MediaItem, settings map[string]any) []ValidationIssue {
 	shape := resolveMediaShape([]ResolveSegment{{Media: media}}, "")
+	settings = NormalizeMediaTextLinkSettings(provider, len(media), settings)
 	if capability, ok := findOutputForValidation(provider, outputProfile, fallbackProfile, shape); ok {
 		intent := ""
 		if len(capability.Intents) > 0 {

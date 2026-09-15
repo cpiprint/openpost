@@ -3,6 +3,8 @@ import { m } from '$lib/paraglide/messages';
 
 export const COMPOSER_MODE_KEYS = ['post', 'thread'] as const;
 
+const MEDIA_TEXT_LINK_PLATFORMS = new Set(['x', 'threads', 'mastodon', 'linkedin']);
+
 export type ComposerModeKey = (typeof COMPOSER_MODE_KEYS)[number];
 
 export interface ComposerAccountTarget {
@@ -207,10 +209,18 @@ export function buildPublicationPayload(
 		renditions: input.accounts.map((account) => {
 			const platform = getPlatformKey(account.platform);
 			const resolved = input.resolvedByAccount?.[account.id];
+			const outputProfile =
+				input.requestedOutputProfiles?.[account.id] ??
+				resolved?.outputProfile ??
+				fallbackOutputProfile(platform, input.mode, canonicalSegments);
+			const profile = resolved?.profile ?? contentProfile;
 			const settings = cloneComposerSettings(input.settingsByAccount?.[account.id]);
 			const destinationTitle = parseComposerSettingString(settings.title).trim();
 			const destinationDescription = parseComposerSettingString(settings.description).trim();
-			if (input.fields.linkUrl?.trim()) {
+			if (MEDIA_TEXT_LINK_PLATFORMS.has(platform) && profile !== 'link_share') {
+				delete settings.url;
+				delete settings.link_url;
+			} else if (input.fields.linkUrl?.trim()) {
 				if (platform === 'bluesky') {
 					settings.link_url ??= input.fields.linkUrl.trim();
 				} else {
@@ -220,11 +230,6 @@ export function buildPublicationPayload(
 			if (platform === 'youtube' && input.thumbnailMediaId) {
 				settings.thumbnail_media_id ??= input.thumbnailMediaId;
 			}
-			const outputProfile =
-				input.requestedOutputProfiles?.[account.id] ??
-				resolved?.outputProfile ??
-				fallbackOutputProfile(platform, input.mode, canonicalSegments);
-			const profile = resolved?.profile ?? contentProfile;
 			const followUpSegments: PublicationPayloadRenditionSegment[] = [];
 			const destinationSegments =
 				resolved?.segmentStrategy === 'join' && canonicalSegments.length > 1
@@ -237,6 +242,10 @@ export function buildPublicationPayload(
 						? (overrides.body ?? '')
 						: firstNonEmpty(segment.content, input.fields.postText, sourceText);
 				const segmentSettings = cloneComposerSettings(segment.settingsByAccount?.[account.id]);
+				if (MEDIA_TEXT_LINK_PLATFORMS.has(platform) && profile !== 'link_share') {
+					delete segmentSettings.url;
+					delete segmentSettings.link_url;
+				}
 				const firstComment = parseComposerSettingString(segmentSettings.first_comment).trim();
 				delete segmentSettings.first_comment;
 				if (firstComment) {

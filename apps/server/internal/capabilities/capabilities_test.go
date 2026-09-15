@@ -572,6 +572,43 @@ func TestValidateBlocksMastodonPollWithMedia(t *testing.T) {
 	requireIssueCode(t, issues, "mastodon_poll_media_conflict")
 }
 
+func TestValidateAllowsInlineURLsWithMedia(t *testing.T) {
+	for _, test := range []struct {
+		provider        string
+		outputProfile   string
+		fallbackProfile string
+		media           []MediaItem
+	}{
+		{ProviderThreads, "threads.post", models.ContentProfileImagePost, []MediaItem{{ID: "image-1", MimeType: "image/jpeg", Size: 1024}}},
+		{ProviderX, "x.post", models.ContentProfileImagePost, []MediaItem{{ID: "image-1", MimeType: "image/jpeg", Size: 1024}}},
+		{ProviderMastodon, "mastodon.post", models.ContentProfileImagePost, []MediaItem{{ID: "image-1", MimeType: "image/jpeg", Size: 1024}}},
+		{ProviderLinkedIn, "linkedin.multi_image", models.ContentProfileCarousel, []MediaItem{
+			{ID: "image-1", MimeType: "image/jpeg", Size: 1024},
+			{ID: "image-2", MimeType: "image/jpeg", Size: 1024},
+		}},
+	} {
+		t.Run(test.provider, func(t *testing.T) {
+			issues := ValidateOutput(test.provider, test.outputProfile, test.fallbackProfile, "Caption https://example.com", "", "", test.media, map[string]any{
+				"url": "https://example.com",
+			})
+			requireNoIssueCode(t, issues, "unsupported_setting")
+		})
+	}
+}
+
+func TestNormalizeMediaTextLinkSettingsPreservesInput(t *testing.T) {
+	settings := map[string]any{"url": "https://example.com", "reply_settings": "everyone"}
+
+	normalized := NormalizeMediaTextLinkSettings(ProviderX, 1, settings)
+	require.Equal(t, map[string]any{"reply_settings": "everyone"}, normalized)
+	require.Equal(t, "https://example.com", settings["url"])
+
+	withoutMedia := NormalizeMediaTextLinkSettings(ProviderX, 0, settings)
+	require.Equal(t, settings, withoutMedia)
+	unknownProvider := NormalizeMediaTextLinkSettings(ProviderInstagram, 1, settings)
+	require.Equal(t, settings, unknownProvider)
+}
+
 func TestProviderSettingsRejectCrossProviderKeys(t *testing.T) {
 	t.Parallel()
 
