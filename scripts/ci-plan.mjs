@@ -14,7 +14,22 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-export function planCI(files, manifest, { full = false } = {}) {
+export function planCI(files, manifest, { full = false, release = false } = {}) {
+  if (release) {
+    return {
+      application: true,
+      backend: false,
+      frontend: false,
+      marketing: false,
+      documentation: false,
+      cli: false,
+      n8n: false,
+      security: false,
+      image: true,
+      android: true,
+      cache_contract: false,
+    };
+  }
   const touched = new Set(files.flatMap((file) => classifyReleasePath(file, manifest).surfaces));
   const delivery = full || touched.has("delivery");
   const sharedAssets = manifest.surfaces["shared-assets"].prefixes;
@@ -108,11 +123,13 @@ function main() {
   }
 
   const full = process.argv.includes("--full");
+  const release = process.argv.includes("--release");
   const base = option("--base");
   const head = option("--head") ?? "HEAD";
-  if (!full && !base) throw new Error("pass --full or --base REV [--head REV]");
+  if (!release && !full && !base)
+    throw new Error("pass --full, --release, or --base REV [--head REV]");
   const files = base ? changedFiles(base, head) : [];
-  const plan = planCI(files, manifest, { full });
+  const plan = planCI(files, manifest, { full, release });
   const output = process.env.GITHUB_OUTPUT;
   for (const [name, enabled] of Object.entries(plan)) {
     const line = `${name}=${enabled}\n`;
@@ -126,7 +143,7 @@ function main() {
       .join("\n");
     appendFileSync(
       summary,
-      `## CI surface plan\n\n${full ? "Full main candidate." : `${files.length} changed path(s).`}\n\n| Check | Decision |\n| --- | --- |\n${rows}\n`,
+      `## CI surface plan\n\n${release ? "Release artifact candidate." : full ? "Full main candidate." : `${files.length} changed path(s).`}\n\n| Check | Decision |\n| --- | --- |\n${rows}\n`,
     );
   }
 }

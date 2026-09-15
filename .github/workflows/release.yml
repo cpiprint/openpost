@@ -57,8 +57,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          # The tag-triggered CI run starts alongside this release and builds
-          # every candidate artifact. Wait for it, then require success.
+          # The tag-triggered CI run rebuilds only the release artifacts. Wait
+          # for it, then require success before promotion.
           candidate=""
           for _ in $(seq 1 30); do
             candidate="$(gh run list \

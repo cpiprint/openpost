@@ -56,9 +56,12 @@ jobs:
         run: |
           if [[ "$EVENT_NAME" == pull_request ]]; then
             bun scripts/ci-plan.mjs --base "$BASE_SHA" --head "$GITHUB_SHA"
-          elif [[ "$GITHUB_REF" == refs/tags/* || "$BEFORE_SHA" =~ ^0+$ || -z "$BEFORE_SHA" ]]; then
-            # Release tags and the first push have no usable diff base, and the
-            # release pipeline consumes their candidate artifacts.
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            # Release tags only rebuild and scan the release artifacts. Main CI
+            # already ran the complete test matrix for this exact revision.
+            bun scripts/ci-plan.mjs --release
+          elif [[ "$BEFORE_SHA" =~ ^0+$ || -z "$BEFORE_SHA" ]]; then
+            # The first push has no usable diff base, so run every check.
             bun scripts/ci-plan.mjs --full
           else
             # Main pushes plan from the pushed diff so untouched surfaces skip.
@@ -484,7 +487,7 @@ jobs:
       matrix:
         shard: [1, 2]
     needs: [plan, frontend-build]
-    if: needs.plan.outputs.application == 'true'
+    if: needs.plan.outputs.application == 'true' && github.ref_type != 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

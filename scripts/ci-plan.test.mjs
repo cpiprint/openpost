@@ -106,3 +106,20 @@ test("main candidates always run the complete matrix", () => {
   );
   assert.equal(plan.cache_contract, false);
 });
+
+test("release tags only rebuild the artifacts consumed by the release workflow", () => {
+  const plan = planCI([], manifest, { release: true });
+  assert.deepEqual(plan, {
+    application: true,
+    backend: false,
+    frontend: false,
+    marketing: false,
+    documentation: false,
+    cli: false,
+    n8n: false,
+    security: false,
+    image: true,
+    android: true,
+    cache_contract: false,
+  });
+});
