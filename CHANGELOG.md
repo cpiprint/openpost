@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- API token copying now falls back when browser clipboard permission is denied and leaves a selectable token with clear recovery instructions.
+- Workspace image settings now open device upload first, confirm a completed upload, and keep the final workspace save explicit.
+- Prevent the video editor from opening in browsers that lack its required filesystem, storage, or media APIs, and explain how to recover from blocked Brave filesystem access.
+- Keep project creation working when a browser exposes Web Crypto without `crypto.randomUUID`.
 - Keep the composer publishing warning hidden while pasted media is uploading, and align a lone required destination selector with its label.
 - Keep URLs in post text when publishing media to X, Threads, Mastodon, and LinkedIn.
 - Remove stale native link settings from existing media publications during readiness checks and publishing.
