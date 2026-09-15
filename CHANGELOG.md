@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.33.0] - 2026-09-15
+
+### Fixed
+
+- Lemmy replies keep their posted and edited times and show whether the connected account already liked them, and Lemmy account content discovery no longer drops every post.
+- Lemmy community search now lists communities, and published Lemmy posts keep the community's host in their destination reference.
+- PeerTube engagement now collects each comment's text, author, and replies instead of storing empty comments.
+
+### Added
+
+- Send Paddle customer, subscription, trial, cancellation, payment, and payment-failure events to a configured Discord webhook as embeds with user identity, email, plan, status, amount, and profile avatar when available.
+
 ## [4.32.1] - 2026-09-15
 
 ### Fixed
