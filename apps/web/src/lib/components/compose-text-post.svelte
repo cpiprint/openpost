@@ -189,6 +189,7 @@
 	import {
 		ComposerSessionMediaQueue,
 		availablePasteMediaSlots,
+		firstFailedPasteMediaUpload,
 		hasUnsettledPasteMediaUploads,
 		pasteMediaTargetKey,
 		pastedImageFileSignature,
@@ -1541,10 +1542,15 @@
 
 	function pasteMediaUploadBlocker(): string {
 		if (pasteMediaUploads.length === 0) return '';
-		const failedUpload = pasteMediaUploads.find((upload) => upload.status === 'failed');
+		const failedUpload = firstFailedPasteMediaUpload(pasteMediaUploads);
 		return (
 			failedUpload?.error || m.media_uploaded_progress({ done: 0, total: pasteMediaUploads.length })
 		);
+	}
+
+	function pasteMediaUploadIssue(): string {
+		const failedUpload = firstFailedPasteMediaUpload(pasteMediaUploads);
+		return failedUpload?.error || (failedUpload ? m.compose_upload_failed() : '');
 	}
 
 	function globalFormBlockers(): string[] {
@@ -1558,8 +1564,8 @@
 		) {
 			blockers.push(m.compose_thread_minimum());
 		}
-		const pasteUploadBlocker = pasteMediaUploadBlocker();
-		if (pasteUploadBlocker) blockers.push(pasteUploadBlocker);
+		const pasteUploadIssue = pasteMediaUploadIssue();
+		if (pasteUploadIssue) blockers.push(pasteUploadIssue);
 		if (capabilityResolveError) blockers.push(capabilityResolveError);
 		return uniqueIssueMessages(blockers);
 	}

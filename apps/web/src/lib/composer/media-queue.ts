@@ -83,6 +83,12 @@ export function hasUnsettledPasteMediaUploads(items: Iterable<PasteMediaUploadIt
 	);
 }
 
+export function firstFailedPasteMediaUpload(
+	items: Iterable<PasteMediaUploadItem>
+): PasteMediaUploadItem | undefined {
+	return [...items].find((item) => item.status === 'failed');
+}
+
 export function acceptedPastedImageFiles(
 	items: Iterable<ClipboardFileItem>,
 	capacity: number,

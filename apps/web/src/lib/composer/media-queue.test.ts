@@ -4,6 +4,7 @@ import {
 	ComposerSessionMediaQueue,
 	acceptedPastedImageFiles,
 	availablePasteMediaSlots,
+	firstFailedPasteMediaUpload,
 	hasUnsettledPasteMediaUploads,
 	selectPastedImageFiles,
 	type ClipboardFileItem,
@@ -67,6 +68,30 @@ describe('acceptedPastedImageFiles', () => {
 
 	it('does not report settled navigation state for an empty queue', () => {
 		expect(hasUnsettledPasteMediaUploads([])).toBe(false);
+	});
+
+	it('only reports failed uploads as actionable upload issues', () => {
+		const queued = {
+			id: 'upload-queued',
+			file: fakeFile('queued.png', 'image/png'),
+			previewURL: 'preview:queued',
+			target,
+			status: 'queued' as const,
+			progress: null,
+			error: ''
+		};
+		const uploading = { ...queued, id: 'uploading', status: 'uploading' as const };
+		const paused = { ...queued, id: 'upload-paused', status: 'paused' as const };
+		const failed = {
+			...queued,
+			id: 'upload-failed',
+			status: 'failed' as const,
+			error: 'Upload failed'
+		};
+
+		expect(firstFailedPasteMediaUpload([queued, uploading])).toBeUndefined();
+		expect(firstFailedPasteMediaUpload([queued, paused])).toBeUndefined();
+		expect(firstFailedPasteMediaUpload([queued, failed])).toBe(failed);
 	});
 
 	it('keeps native text and non-image paste behavior unless an eligible image fits', () => {
