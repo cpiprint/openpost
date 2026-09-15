@@ -16,7 +16,7 @@ Use the `openpost` executable as an external client of a running OpenPost instan
    openpost version
    ```
 
-   If it is missing, stop and point to `https://docs.openpo.st/cli/installation`. Do not install software unless the user asked.
+   If it is missing, stop and point to `https://docs.openpo.st/guides/automation`. Do not install software unless the user asked.
 
 2. Inspect context before a workspace-scoped action:
 
@@ -46,11 +46,11 @@ Read [references/workflows.md](references/workflows.md) for exact command patter
 - Default to creating a draft when the user did not ask to schedule or publish.
 - Treat scheduling, publishing, retrying a rendition, replying, hiding or deleting a comment, disconnecting an account, generating schedule slots, and deletion as state-changing actions. Perform them only when the request authorizes that effect.
 - Before a publish or schedule action, resolve the exact instance, workspace, destination accounts, content, media, and RFC3339 time or named next slot.
-- Use account slugs as human-friendly `--accounts` selectors. Use exact account IDs for rendition retry or deletion.
+- Use account slugs as human-friendly `--accounts` selectors. Use exact account IDs for rendition retry, rendition deletion, and account disconnect; `account rename` accepts a flexible selector (ID, slug, `platform:username`, bare platform, or Fediverse host) plus `--slug`.
 - Add alt text during upload or with `openpost media update`.
 - Run `openpost publication validate <id> --json` before publishing a format-first publication.
-- Pass `--yes` only when the user already authorized the command's confirmation. Pass `--confirm` only for the exact publication or rendition the user asked to delete.
-- Never add `--force` automatically after a revision conflict. Reload the post or publication, show the conflict, and retry only after reconciling the saved version with the requested edits.
+- Pass `--yes` only when the user already authorized the command's confirmation. Interactive confirmations guard `post delete`, `media delete`, `schedule delete`, `schedule suggest`, and `account disconnect`. Pass `--confirm` only for the exact item the user asked to delete: `publication delete`, `publication delete-rendition`, and `publication delete-comment` each require it.
+- Never add `--force` automatically after a revision conflict. Only `publication update` has `--force`; `post update` has no such flag because it re-reads the current revision before writing. Reload with `post view` or `publication view`, show the conflict, and retry only after reconciling the saved version with the requested edits.
 
 ## Verify the outcome
 
