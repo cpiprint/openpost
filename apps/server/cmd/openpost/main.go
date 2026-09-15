@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -44,6 +45,7 @@ import (
 	"github.com/openpost/backend/internal/services/botingress"
 	cliauth "github.com/openpost/backend/internal/services/cli_auth"
 	"github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/services/discordpresence"
 	"github.com/openpost/backend/internal/services/emailchange"
 	"github.com/openpost/backend/internal/services/emailverification"
 	"github.com/openpost/backend/internal/services/encryptionrotation"
@@ -786,7 +788,21 @@ func main() {
 
 	organizationOwnershipService := organizationownership.NewService(db, notificationService, identityService)
 	var worker *queue.BackgroundWorker
+	var discordPresenceService *discordpresence.Service
 	if command.role.runsWorker() {
+		for _, app := range providerAppConfigs {
+			app = platform.NormalizeAppConfig(app)
+			if app.Provider != capabilities.ProviderDiscord || app.ConnectionMode != platform.ConnectionModeBot || app.BotToken == "" || slices.Contains(cfg.DisabledProviders, capabilities.ProviderDiscord) {
+				continue
+			}
+			discordPresenceService, err = discordpresence.NewService(app.BotToken, discordpresence.Options{
+				StreamURL: cfg.DiscordPresenceStreamURL,
+			})
+			if err != nil {
+				fatalfWithDiagnostics(diagnosticsReporter, "Discord presence configuration is invalid: %v", err)
+			}
+			break
+		}
 		worker = queue.NewWorker(db, newWorkerID(), 1*time.Second, publishSvc, tokenManager, storage)
 		worker.SetFeedbackService(feedbackService)
 		worker.SetAnalyticsService(analyticsService)
@@ -994,6 +1010,9 @@ func main() {
 	defer cancelWorker()
 	if worker != nil {
 		go worker.Start(workerCtx)
+		if discordPresenceService != nil {
+			discordPresenceService.Start(workerCtx)
+		}
 		log.Printf("Starting OpenPost %s process", command.role)
 	}
 

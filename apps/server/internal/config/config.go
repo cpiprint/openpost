@@ -83,6 +83,7 @@ type Config struct {
 	FeedbackDestinationURL   string
 	FeedbackRecipient        string
 	FeedbackSupportURL       string
+	DiscordPresenceStreamURL string
 	DiagnosticsEnabled       bool
 	DiagnosticsEnvSet        bool
 	DiagnosticsReceiverURL   string
@@ -284,6 +285,7 @@ func Load() *Config {
 		FeedbackDestinationURL:       getEnvDefault("OPENPOST_FEEDBACK_DESTINATION_URL", ""),
 		FeedbackRecipient:            getEnvDefault("OPENPOST_FEEDBACK_RECIPIENT", ""),
 		FeedbackSupportURL:           getEnvDefault("OPENPOST_FEEDBACK_SUPPORT_URL", "https://github.com/getopenpost/openpost/issues/new"),
+		DiscordPresenceStreamURL:     strings.TrimSpace(getEnvDefault("OPENPOST_DISCORD_PRESENCE_STREAM_URL", "")),
 		DiagnosticsEnabled:           getEnvBoolWithAliases(true, "OPENPOST_DIAGNOSTICS_ENABLED"),
 		DiagnosticsEnvSet:            isEnvSet("OPENPOST_DIAGNOSTICS_ENABLED"),
 		DiagnosticsReceiverURL:       strings.TrimRight(strings.TrimSpace(getEnvDefault("OPENPOST_DIAGNOSTICS_RECEIVER_URL", defaultDiagnosticsReceiverURL)), "/"),
@@ -706,6 +708,9 @@ func (c *Config) ValidateRuntime() error {
 	}
 	if err := validateBillingDiscordWebhookURL(c.BillingDiscordWebhookURL); err != nil {
 		return err
+	}
+	if _, err := platform.NormalizeDiscordPresenceStreamURL(c.DiscordPresenceStreamURL); err != nil {
+		return fmt.Errorf("OPENPOST_DISCORD_PRESENCE_STREAM_URL: %w", err)
 	}
 	if c.XAccountHistoryReadRequestsPerDay < 0 {
 		return fmt.Errorf("OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY must be >= 0")

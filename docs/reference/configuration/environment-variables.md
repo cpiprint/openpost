@@ -118,6 +118,7 @@ Bootstrap and data-plane settings stay deployment-only because OpenPost needs th
 | `OPENPOST_FEEDBACK_DESTINATION_URL` | Required when feedback is enabled | empty | Server-only HTTPS Discord-compatible webhook. Use `OPENPOST_FEEDBACK_DESTINATION_URL_FILE` for a managed secret. |
 | `OPENPOST_FEEDBACK_RECIPIENT` | Required when feedback is enabled | empty | Plain recipient name shown to users before they send a report, such as `OpenPost team` or `Example operator`. |
 | `OPENPOST_FEEDBACK_SUPPORT_URL` | No | OpenPost GitHub new-issue URL | HTTPS support link shown when the report form is disabled. Query strings and fragments are removed. |
+| `OPENPOST_DISCORD_PRESENCE_STREAM_URL` | No | empty | Optional HTTPS Twitch or YouTube URL for the instance Discord bot's rotating `Streaming` presence. Leave empty to use `Watching`. |
 | `OPENPOST_DIAGNOSTICS_ENABLED` | No | `true` | Sends privacy-limited diagnostic reports to OpenPost. Set `false` to opt out; the environment disable always wins. See `docs/reference/configuration/diagnostics.md`. |
 | `OPENPOST_DIAGNOSTICS_RECEIVER_URL` | No | official OpenPost receiver | Diagnostics receiver endpoint. |
 | `OPENPOST_DIAGNOSTICS_INGEST_ENABLED` | No | `false` | Serves the public cross-instance ingest endpoint. Enable only on the official receiver. |
@@ -141,6 +142,8 @@ Bootstrap and data-plane settings stay deployment-only because OpenPost needs th
 | `OPENPOST_PROVIDER_USAGE_RETENTION_DAYS` | No | `180` | Retention for confirmed provider-cost events and unresolved reservations. Startup pruning is bounded and never removes the open month. |
 
 The official hosted policy URLs and versions come from `packages/legal-policy/src/manifest.json`. Run `bun scripts/legal-policy-manifest.mjs env` to print the four non-secret environment values. Cloud startup fails closed when the configured official URLs or versions drift from that manifest, so a policy change cannot silently record acceptance against old text. A substantive Terms or Privacy change advances its version and causes existing accounts to see the acceptance screen again. Spelling, formatting, and link-only corrections keep the existing version. The Refund Policy is incorporated into the Terms and does not have a separate acceptance record.
+
+When an instance-owned Discord bot is configured, the worker keeps one Gateway connection open and publishes a rotating online presence. With no stream URL, the activity is `Watching`. Set `OPENPOST_DISCORD_PRESENCE_STREAM_URL` to an HTTPS Twitch or YouTube URL only when the activity should be `Streaming`.
 
 ## Automatic image alt text
 

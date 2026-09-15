@@ -10,6 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.43.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.36
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.104.1
+	github.com/bwmarrin/discordgo v0.29.0
 	github.com/coreos/go-oidc/v3 v3.20.0
 	github.com/danielgtaylor/huma/v2 v2.37.3
 	github.com/dghubble/oauth1 v0.7.3
@@ -67,6 +68,7 @@ require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/gogs/chardet v0.0.0-20211120154057-b7413eaefb8f // indirect
 	github.com/google/go-tpm v0.9.8 // indirect
+	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/itlightning/dateparse v0.2.1 // indirect

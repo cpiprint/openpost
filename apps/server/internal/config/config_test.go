@@ -71,6 +71,7 @@ var configTestEnvKeys = []string{
 	"OPENPOST_FEEDBACK_DESTINATION_URL",
 	"OPENPOST_FEEDBACK_RECIPIENT",
 	"OPENPOST_FEEDBACK_SUPPORT_URL",
+	"OPENPOST_DISCORD_PRESENCE_STREAM_URL",
 	"OPENPOST_TELEMETRY_ENABLED",
 	"OPENPOST_POSTHOG_PROJECT_TOKEN",
 	"OPENPOST_POSTHOG_API_HOST",
@@ -349,6 +350,23 @@ func TestLoadReadsBillingDiscordWebhookFromFile(t *testing.T) {
 
 	require.Equal(t, "https://discord.com/api/webhooks/test/token", cfg.BillingDiscordWebhookURL)
 	require.NoError(t, cfg.ValidateRuntime())
+}
+
+func TestLoadReadsDiscordPresenceStreamURL(t *testing.T) {
+	t.Setenv("OPENPOST_DISCORD_PRESENCE_STREAM_URL", "https://www.youtube.com/watch?v=openpost")
+
+	cfg := Load()
+
+	require.Equal(t, "https://www.youtube.com/watch?v=openpost", cfg.DiscordPresenceStreamURL)
+	require.NoError(t, cfg.ValidateRuntime())
+}
+
+func TestValidateRuntimeRejectsInvalidDiscordPresenceStreamURL(t *testing.T) {
+	t.Setenv("OPENPOST_DISCORD_PRESENCE_STREAM_URL", "https://openpo.st/live")
+
+	err := Load().ValidateRuntime()
+
+	require.ErrorContains(t, err, "OPENPOST_DISCORD_PRESENCE_STREAM_URL")
 }
 
 func TestValidateRuntimeRejectsNonDiscordBillingWebhook(t *testing.T) {

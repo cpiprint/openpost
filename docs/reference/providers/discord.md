@@ -37,3 +37,10 @@ Discord bot application, then connect a guild and choose from channels the bot
 can use. OpenPost checks the exact application, grant, channel permissions,
 runtime controls, and destination settings before publishing. Incoming
 webhooks remain supported independently and do not inherit bot account state.
+
+The worker also keeps the configured bot connected to Discord's Gateway and
+sets it online with a rotating presence: `your next post`, `content on
+autopilot`, `across your socials`, and `sooo many posts`. It uses the
+`Watching` activity by default. Set `OPENPOST_DISCORD_PRESENCE_STREAM_URL` to
+an HTTPS Twitch or YouTube URL to use Discord's `Streaming` activity. Discord
+does not accept an OpenPost URL for that activity.
