@@ -27,6 +27,7 @@
 	import type { Workspace } from '$lib/api/client';
 	import NotificationBell from './notification-bell.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import GitHubStarPill from './github-star-pill.svelte';
 
 	let authState = $derived($auth);
 	let createWorkspaceOpen = $state(false);
@@ -158,6 +159,7 @@
 			>
 				<Logo width={26} height={26} showText={sidebar.state !== 'collapsed'} decorative />
 			</a>
+			<GitHubStarPill />
 
 			<div class="ms-auto flex shrink-0 items-center gap-0.5">
 				{#if sidebar.state !== 'collapsed'}<NotificationBell compact />{/if}

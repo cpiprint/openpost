@@ -41,6 +41,7 @@ const names = {
 	favorite: 'heart',
 	file: 'file',
 	growth: 'user-plus',
+	github: 'github-logo',
 	help: 'question',
 	history: 'clock-counter-clockwise',
 	home: 'house',

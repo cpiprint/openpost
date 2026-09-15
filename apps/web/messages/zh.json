@@ -1534,6 +1534,7 @@
 	"sidebar_drafts_empty": "No drafts yet. Start writing and your draft will appear here.",
 	"sidebar_accounts": "Accounts",
 	"sidebar_openpost_home": "OpenPost home",
+	"sidebar_github_repository": "GitHub 上的 OpenPost",
 	"sidebar_media": "Media",
 	"sidebar_prompts": "Prompts",
 	"sidebar_settings": "Settings",

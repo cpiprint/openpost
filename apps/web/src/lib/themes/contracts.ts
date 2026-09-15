@@ -82,6 +82,7 @@ export const THEME_ICON_ROLES = [
 	'favorite',
 	'file',
 	'growth',
+	'github',
 	'help',
 	'history',
 	'home',

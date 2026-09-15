@@ -39,6 +39,7 @@ export const heroiconsNames = {
 	favorite: 'heart',
 	file: 'document',
 	growth: 'user-plus',
+	github: 'code-bracket',
 	help: 'question-mark-circle',
 	history: 'clock',
 	home: 'home',
