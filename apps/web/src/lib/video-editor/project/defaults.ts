@@ -19,6 +19,7 @@ import { m } from '$lib/paraglide/messages';
 import { normalizeAudioEffects } from '../audio/audio-effects';
 import { convertFreeCutProjectDocument, isFreeCutProjectDocument } from './freecut-compat';
 import { isValidProjectCreationSettings, type ProjectCreationSettings } from './project-presets';
+import { createUUID } from '$lib/crypto-random-uuid';
 
 export { CURRENT_SCHEMA_VERSION } from './migrations';
 
@@ -84,7 +85,7 @@ export function createBlankProject(
 	}
 	const now = Date.now();
 	return {
-		id: crypto.randomUUID(),
+		id: createUUID(),
 		name,
 		description: '',
 		createdAt: now,

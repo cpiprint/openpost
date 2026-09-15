@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '$lib/paraglide/runtime';
 import {
 	createBlankProject,
@@ -28,6 +28,18 @@ describe('createBlankProject', () => {
 		]);
 		expect(project.timeline?.items).toEqual([]);
 		expect(project.animationPresets).toEqual([]);
+	});
+
+	it('creates a project when the browser has no crypto.randomUUID', () => {
+		vi.stubGlobal('crypto', {
+			getRandomValues: (bytes: Uint8Array) => bytes.fill(3)
+		});
+
+		const project = createBlankProject('Legacy browser');
+
+		expect(project.id).toMatch(
+			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+		);
 	});
 
 	it('rejects invalid canvas settings at the project boundary', () => {

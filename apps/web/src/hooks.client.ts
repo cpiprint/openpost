@@ -1,6 +1,7 @@
 /* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-runtime-typeof -- SvelteKit delivers untyped errors to this boundary; the helpers below narrow them before use. */
 import type { HandleClientError } from '@sveltejs/kit';
 import { installMaintainerDiagnosticsCapture } from '$lib/diagnostics-report';
+import { installCryptoRandomUUID } from '$lib/crypto-random-uuid';
 import {
 	captureClientException,
 	createChunkRecovery,
@@ -96,6 +97,7 @@ function diagnosticsFor(error: unknown): ChunkFailureDiagnostics {
 }
 
 async function init() {
+	installCryptoRandomUUID();
 	initializeClientErrors(installGlobalErrorCapture);
 	// Maintainer diagnostics ride a separate channel to the viewer's own
 	// instance: uncaught failures arrive as normalized codes and locations,

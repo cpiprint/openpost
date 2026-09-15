@@ -8,6 +8,36 @@
 
 	let { gate, variant = 'standalone' }: { gate: WorkspaceGate; variant?: 'standalone' | 'inline' } =
 		$props();
+
+	const unavailableCopy = $derived.by(() => {
+		switch (gate.browserSupport?.issue) {
+			case 'secure-context':
+				return {
+					title: m.video_editor_gate_secure_context_title(),
+					body: m.video_editor_gate_secure_context_body()
+				};
+			case 'filesystem-blocked':
+				return {
+					title: m.video_editor_gate_filesystem_blocked_title(),
+					body: m.video_editor_gate_filesystem_blocked_body()
+				};
+			case 'storage-blocked':
+				return {
+					title: m.video_editor_gate_storage_blocked_title(),
+					body: m.video_editor_gate_storage_blocked_body()
+				};
+			case 'media-api':
+				return {
+					title: m.video_editor_gate_media_api_title(),
+					body: m.video_editor_gate_media_api_body()
+				};
+			default:
+				return {
+					title: m.video_editor_gate_unavailable_title(),
+					body: m.video_editor_gate_filesystem_api_body()
+				};
+		}
+	});
 </script>
 
 {#if gate.state === 'initializing'}
@@ -15,12 +45,15 @@
 {:else if gate.state === 'unavailable'}
 	<div class="max-w-md text-center">
 		<svelte:element this={variant === 'inline' ? 'h2' : 'h1'} class="text-lg font-semibold"
-			>{m.video_editor_gate_unavailable_title()}</svelte:element
+			>{unavailableCopy.title}</svelte:element
 		>
 		<p class="mt-2 text-sm text-[var(--video-editor-muted)]">
-			{m.video_editor_gate_unavailable_body()}
+			{unavailableCopy.body}
 		</p>
-		<Button class="mt-6" onclick={() => history.back()}>{m.video_editor_go_back()}</Button>
+		<div class="mt-6 flex flex-wrap justify-center gap-2">
+			<Button onclick={() => location.reload()}>{m.video_editor_gate_reload()}</Button>
+			<Button variant="outline" onclick={() => history.back()}>{m.video_editor_go_back()}</Button>
+		</div>
 	</div>
 {:else if gate.state === 'pick' || gate.state === 'reconnect'}
 	<div

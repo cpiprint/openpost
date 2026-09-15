@@ -11,7 +11,6 @@ import {
 	activateWorkspaceHandle,
 	ensureKnownWorkspaceForCurrent,
 	getWorkspaceHandleRecord,
-	isFileSystemAccessSupported,
 	listKnownWorkspaces,
 	queryHandlePermission,
 	requestHandlePermission,
@@ -21,18 +20,23 @@ import {
 } from '../workspace-fs/handles-db';
 import { getWorkspaceRoot, onPermissionLost, setWorkspaceRoot } from '../workspace-fs/root';
 import { bootstrapWorkspace } from '../workspace-fs/bootstrap';
+import {
+	detectVideoEditorBrowserSupport,
+	type VideoEditorBrowserSupport
+} from './browser-capabilities';
 
 export type WorkspaceGateState = 'initializing' | 'unavailable' | 'pick' | 'reconnect' | 'ready';
 
 export function createWorkspaceGate() {
 	const existingRoot = getWorkspaceRoot();
-	let state = $state<WorkspaceGateState>(existingRoot ? 'ready' : 'initializing');
+	let state = $state<WorkspaceGateState>('initializing');
 	let workspaceName = $state(existingRoot?.name ?? '');
 	let activeWorkspaceId = $state<string | null>(null);
 	let workspaceRevision = $state(0);
 	let knownWorkspaces = $state.raw<HandleRecord[]>([]);
 	let busy = $state(false);
 	let error = $state('');
+	let browserSupport = $state<VideoEditorBrowserSupport | null>(null);
 
 	async function activate(record: HandleRecord): Promise<boolean> {
 		// SAFETY: workspace records always store a directory handle.
@@ -52,7 +56,9 @@ export function createWorkspaceGate() {
 	onMount(() => {
 		let cancelled = false;
 		void (async () => {
-			if (!isFileSystemAccessSupported()) {
+			const support = await detectVideoEditorBrowserSupport();
+			if (!cancelled) browserSupport = support;
+			if (!support.supported) {
 				if (!cancelled) state = 'unavailable';
 				return;
 			}
@@ -121,6 +127,12 @@ export function createWorkspaceGate() {
 			}
 		} catch (err) {
 			if (err instanceof DOMException && err.name === 'AbortError') return;
+			if (err instanceof DOMException && ['NotAllowedError', 'SecurityError'].includes(err.name)) {
+				browserSupport = { supported: false, issue: 'filesystem-blocked' };
+				state = 'unavailable';
+				error = '';
+				return;
+			}
 			error = err instanceof Error ? err.message : String(err);
 		} finally {
 			busy = false;
@@ -226,6 +238,9 @@ export function createWorkspaceGate() {
 		},
 		get error() {
 			return error;
+		},
+		get browserSupport() {
+			return browserSupport;
 		},
 		pickFolder,
 		reconnect,
