@@ -386,6 +386,7 @@ func TestLoadCloudCORSOriginsExcludeLocalDevelopmentDefaults(t *testing.T) {
 
 	require.Equal(t, []string{
 		"https://app.openpo.st",
+		"https://openpo.st",
 		"https://admin.example.com",
 	}, cfg.CORSOrigins)
 	require.NotContains(t, cfg.CORSOrigins, "http://localhost:5173")

@@ -582,6 +582,10 @@ func buildCORSOrigins(edition, frontendURL, extraRaw string) []string {
 	}
 
 	addOrigin(frontendURL)
+	if edition == EditionCloud && frontendURL == "https://app.openpo.st" {
+		// The hosted marketing site reads the cached public GitHub count from the app API.
+		addOrigin("https://openpo.st")
+	}
 	if edition != EditionCloud {
 		addOrigin("http://localhost:5173")
 		addOrigin("http://localhost")

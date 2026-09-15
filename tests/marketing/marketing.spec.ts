@@ -15,6 +15,28 @@ test("marketing index links to the app and documentation @desktop", async ({ pag
   ).toHaveAttribute("href", "https://docs.openpo.st/guides/quickstart");
 });
 
+test("landing header shows the live GitHub star link beside the wordmark", async ({ page }) => {
+  await page.route("https://app.openpo.st/api/v1/github-stars", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ count: 512 }),
+    });
+  });
+  await page.goto("/");
+
+  const header = page.locator("header.marketing-nav");
+  const starPill = header.getByTestId("github-star-pill");
+  await expect(starPill).toBeVisible();
+  await expect(starPill).toHaveAttribute("href", "https://github.com/getopenpost/openpost");
+  await expect(starPill).toHaveText("512");
+  await expect(starPill.locator("svg")).toBeVisible();
+  await expect(
+    header.getByRole("link", { name: "OpenPost home", exact: true }).locator(".."),
+  ).toContainText("OpenPost");
+  await expect(page.getByTestId("github-star-pill")).toHaveCount(1);
+});
+
 test("resources menu uses one column per resource group @desktop", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Resources", exact: true }).click();

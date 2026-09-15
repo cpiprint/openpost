@@ -10,6 +10,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as NavigationMenu from '$lib/components/ui/navigation-menu';
 	import ThemeImage from './ThemeImage.svelte';
+	import GitHubStarPill from './GitHubStarPill.svelte';
 	import { appUrl, managedSignupUrl, marketingNavigation, platforms } from '../_marketing';
 
 	type NavigationItem = { label: string; href: string };
@@ -46,22 +47,27 @@
 
 <header class="marketing-nav sticky top-0 z-40">
 	<div class="marketing-shell flex min-h-16 items-center justify-between gap-4">
-		<a
-			class="focus-ring inline-flex min-h-11 items-center gap-2 rounded-md"
-			href={resolve('/')}
-			aria-label="OpenPost home"
-		>
-			<ThemeImage
-				lightSrc="/assets/brand/logo.svg"
-				darkSrc="/assets/brand/logo-dark.svg"
-				alt=""
-				width={28}
-				height={28}
-				loading="eager"
-				class="shrink-0"
-			/>
-			<span class="font-brand text-sm leading-none font-semibold tracking-[-0.02em]">OpenPost</span>
-		</a>
+		<div class="flex min-w-0 items-center gap-3">
+			<a
+				class="focus-ring inline-flex min-h-11 items-center gap-2 rounded-md"
+				href={resolve('/')}
+				aria-label="OpenPost home"
+			>
+				<ThemeImage
+					lightSrc="/assets/brand/logo.svg"
+					darkSrc="/assets/brand/logo-dark.svg"
+					alt=""
+					width={28}
+					height={28}
+					loading="eager"
+					class="shrink-0"
+				/>
+				<span class="font-brand text-sm leading-none font-semibold tracking-[-0.02em]"
+					>OpenPost</span
+				>
+			</a>
+			<GitHubStarPill />
+		</div>
 
 		<NavigationMenu.Root
 			viewport={false}
