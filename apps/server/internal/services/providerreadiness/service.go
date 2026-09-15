@@ -160,10 +160,10 @@ func (s *Service) ResolveCertificationContext(
 	var contract CertificationContract
 	var err error
 	mandatoryCertification := requiresCertifiedOperation(account.Platform)
-	// Production identity and provider environment remain production-scoped even
-	// when the optional evidence gate is off. Only the explicit gate or a
-	// provider's mandatory certification policy should require recorded proof.
-	enforceCertification := s.enforceCertification || mandatoryCertification
+	// Production publishing keeps the explicit evidence gate. Account-read
+	// operations only require recorded proof when their provider policy marks
+	// them mandatory, so normal Discord bot analytics is not certification-gated.
+	enforceCertification := (operation.IsPublish() && s.enforceCertification) || mandatoryCertification
 	if operation.IsPublish() {
 		policyMode = PublicationPolicyMode(account, capability, settings)
 		contract, err = PublicationContract(capability, operation, enforceCertification, accountKind, policyMode)
@@ -275,7 +275,7 @@ func (s *Service) DecideAccountOperation(ctx context.Context, account models.Soc
 	accountKind := AccountKind(account)
 	policyMode := account.Platform + "." + string(operation)
 	mandatoryCertification := requiresCertifiedOperation(account.Platform)
-	contract, _ := OperationContract(account.Platform, operation, (s != nil && s.enforceCertification) || mandatoryCertification, accountKind)
+	contract, _ := OperationContract(account.Platform, operation, mandatoryCertification, accountKind)
 	if mandatoryCertification && (s == nil || !s.managedProduction) {
 		allowNonProductionCertification(&contract)
 	}

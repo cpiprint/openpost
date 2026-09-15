@@ -5,6 +5,10 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
+	"github.com/stretchr/testify/require"
 )
 
 func TestServiceFailsClosedWhenLedgerIsMissingOrUnavailable(t *testing.T) {
@@ -68,6 +72,36 @@ func TestRequiresCertifiedOperationKeepsDiscordBotOnTheNormalReadinessPath(t *te
 	if !requiresCertifiedOperation("pinterest") {
 		t.Fatal("Pinterest lost its certification gate")
 	}
+}
+
+func TestDiscordAnalyticsDoesNotInheritGlobalPublishingCertificationGate(t *testing.T) {
+	t.Parallel()
+
+	catalog, err := NewConfigurationCatalog(RuntimeApps([]platform.AppConfig{{
+		Provider:       "discord",
+		ConnectionMode: platform.ConnectionModeBot,
+		ClientID:       "discord-client",
+		ClientSecret:   "discord-secret",
+		BotToken:       "discord-token",
+		RedirectURI:    "https://openpost.test/discord/callback",
+	}}, ConfigurationSourceEnvironment, ProviderEnvironmentProduction))
+	require.NoError(t, err)
+	service := NewService(&fakeLedger{
+		approvalErr: ErrLedgerFactNotFound,
+		controlErr:  ErrLedgerFactNotFound,
+	}, ServiceOptions{
+		Configurations:       catalog,
+		ManagedProduction:    true,
+		EnforceCertification: true,
+		DefaultControl:       RuntimeControlStateEnabled,
+	})
+	decision := service.DecideAccountOperation(t.Context(), models.SocialAccount{
+		ID:              "discord-account",
+		WorkspaceID:     "workspace-1",
+		Platform:        "discord",
+		CapabilityState: `{"connection_type":"bot"}`,
+	}, OperationAnalytics, ExecutionIntentProduction)
+	require.True(t, decision.AnalyticsReady, "Discord bot analytics should use normal configured-account readiness")
 }
 
 func decisionRequest(input EvaluationInput) DecisionRequest {

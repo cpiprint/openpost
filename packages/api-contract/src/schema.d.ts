@@ -7308,7 +7308,7 @@ export interface components {
             resource?: string;
             /** @description OAuth response type. Must be code. */
             response_type: string;
-            /** @description Space-separated MCP scopes: mcp:read and mcp:full. Requesting both grants mcp:full. Defaults to mcp:full. */
+            /** @description Space-separated MCP scopes: mcp:read and mcp:full. Requesting both returns both scopes while enforcing mcp:full. Defaults to mcp:full. */
             scope?: string;
             /** @description Opaque client state to echo to the redirect URI */
             state?: string;

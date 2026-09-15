@@ -4547,7 +4547,7 @@
 						"type": "string"
 					},
 					"scope": {
-						"description": "Space-separated MCP scopes: mcp:read and mcp:full. Requesting both grants mcp:full. Defaults to mcp:full.",
+						"description": "Space-separated MCP scopes: mcp:read and mcp:full. Requesting both returns both scopes while enforcing mcp:full. Defaults to mcp:full.",
 						"type": "string"
 					},
 					"state": {

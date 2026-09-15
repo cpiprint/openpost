@@ -115,8 +115,8 @@ func TestMCPOAuthAuthorizationCodeFlowIssuesUsableMCPToken(t *testing.T) {
 	}{
 		{"mcp:full", "mcp:full"},
 		{"mcp:read", "mcp:read"},
-		{"mcp:read mcp:full", "mcp:full"},
-		{"mcp:full mcp:read", "mcp:full"},
+		{"mcp:read mcp:full", "mcp:read mcp:full"},
+		{"mcp:full mcp:read", "mcp:read mcp:full"},
 		{"mcp:read mcp:read", "mcp:read"},
 	} {
 		t.Run(tc.scope, func(t *testing.T) {

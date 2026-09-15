@@ -55,7 +55,7 @@ type CreateMCPOAuthAuthorizationInput struct {
 		ResponseType        string `json:"response_type" doc:"OAuth response type. Must be code."`
 		ClientID            string `json:"client_id" doc:"OAuth client ID or client metadata URL"`
 		RedirectURI         string `json:"redirect_uri" doc:"OAuth redirect URI"`
-		Scope               string `json:"scope,omitempty" doc:"Space-separated MCP scopes: mcp:read and mcp:full. Requesting both grants mcp:full. Defaults to mcp:full."`
+		Scope               string `json:"scope,omitempty" doc:"Space-separated MCP scopes: mcp:read and mcp:full. Requesting both returns both scopes while enforcing mcp:full. Defaults to mcp:full."`
 		State               string `json:"state,omitempty" doc:"Opaque client state to echo to the redirect URI"`
 		CodeChallenge       string `json:"code_challenge,omitempty" doc:"PKCE S256 code challenge. Required when approved is true."`
 		CodeChallengeMethod string `json:"code_challenge_method,omitempty" doc:"PKCE method. Must be S256 when approved is true."`
