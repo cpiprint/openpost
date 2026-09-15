@@ -80,6 +80,14 @@ function renderAuthorizePage() {
 	});
 }
 
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((resolvePromise) => {
+		resolve = resolvePromise;
+	});
+	return { promise, resolve };
+}
+
 describe('OAuth authorization request validation', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -170,5 +178,24 @@ describe('OAuth authorization request validation', () => {
 
 		resolveAccounts?.({ data: [], error: undefined });
 		await expect.element(screen.getByRole('button', { name: 'Authorize' })).toBeEnabled();
+	});
+
+	it('does not submit a second authorization while the first request is pending', async () => {
+		mocks.pageValue.url = new URL(
+			'http://localhost/oauth/authorize?response_type=code&client_id=executor.sh&redirect_uri=https%3A%2F%2Fexecutor.sh%2Fcallback&scope=mcp%3Afull&code_challenge=challenge&code_challenge_method=S256'
+		);
+		const post = deferred<{ data: undefined; error: { detail: string } }>();
+		mocks.post.mockReturnValue(post.promise);
+
+		const screen = await renderAuthorizePage();
+		const authorize = screen.getByRole('button', { name: /Authoriz/ });
+		await authorize.click();
+		await expect.element(authorize).toBeDisabled();
+
+		authorize.element().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+		expect(mocks.post).toHaveBeenCalledTimes(1);
+
+		post.resolve({ data: undefined, error: { detail: 'Authorization failed.' } });
+		await expect.element(screen.getByText('Authorization failed.')).toBeVisible();
 	});
 });

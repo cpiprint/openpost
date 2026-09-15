@@ -63,6 +63,7 @@
 	let authState = $derived($authStore);
 	let error = $state('');
 	let submitting = $state(false);
+	let redirecting = $state(false);
 	let pendingDecision = $state<boolean | null>(null);
 	let oauthWorkspaceScope = $state('current');
 	let externalApplicationName = $state('');
@@ -164,6 +165,7 @@
 	}
 
 	async function submit(approved: boolean) {
+		if (submitting) return;
 		if (approved && requestError) {
 			error = '';
 			return;
@@ -174,6 +176,7 @@
 		}
 
 		submitting = true;
+		redirecting = false;
 		pendingDecision = approved;
 		error = '';
 		const workspaceID =
@@ -212,6 +215,7 @@
 				if (apiError || !data?.redirect_url) {
 					throw new Error(apiError?.detail ?? m.oauth_authorize_failed());
 				}
+				redirecting = true;
 				window.location.href = data.redirect_url;
 				return;
 			}
@@ -226,12 +230,15 @@
 			if (apiError || !data?.redirect_url) {
 				throw new Error(apiError?.detail ?? m.oauth_authorize_failed());
 			}
+			redirecting = true;
 			window.location.href = data.redirect_url;
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.oauth_authorize_failed();
 		} finally {
-			submitting = false;
-			pendingDecision = null;
+			if (!redirecting) {
+				submitting = false;
+				pendingDecision = null;
+			}
 		}
 	}
 
