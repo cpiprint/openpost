@@ -21,6 +21,8 @@ type fakePeerTube struct {
 	chunks      int
 	thumbnail   bool
 	captionLang string
+	threadCount string
+	threadTrees int
 }
 
 func newFakePeerTube(t *testing.T) (*httptest.Server, *fakePeerTube) {
@@ -97,8 +99,19 @@ func newFakePeerTube(t *testing.T) (*httptest.Server, *fakePeerTube) {
 		fake.captionLang = r.FormValue("language")
 		_, _ = w.Write([]byte(`{}`))
 	})
-	mux.HandleFunc("/api/v1/videos/video-uuid-1/comment-threads", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"total":1,"data":[{"comment":{"id":11,"url":"https://example/c/11","text":"<p>Great demo</p>","threadId":11,"createdAt":"2026-09-01T10:00:00Z","updatedAt":"2026-09-01T10:00:00Z","isDeleted":false,"account":{"name":"viewer","displayName":"Viewer"}},"children":[]}]}`))
+	// The thread list carries plain comments; replies come from the
+	// per-thread tree endpoint.
+	mux.HandleFunc("/api/v1/videos/video-uuid-1/comment-threads", func(w http.ResponseWriter, r *http.Request) {
+		fake.threadCount = r.URL.Query().Get("count")
+		_, _ = w.Write([]byte(`{"total":2,"totalNotDeletedComments":2,"data":[{"id":11,"url":"https://example/c/11","text":"<p>Great demo</p>","threadId":11,"inReplyToCommentId":null,"createdAt":"2026-09-01T10:00:00Z","updatedAt":"2026-09-01T10:00:00Z","isDeleted":false,"totalReplies":1,"account":{"name":"viewer","displayName":"Viewer"}},{"id":14,"url":"https://example/c/14","text":"<p>No replies here</p>","threadId":14,"inReplyToCommentId":null,"createdAt":"2026-09-01T11:00:00Z","updatedAt":"2026-09-01T11:00:00Z","isDeleted":false,"totalReplies":0,"account":{"name":"other","displayName":"Other"}}]}`))
+	})
+	mux.HandleFunc("/api/v1/videos/video-uuid-1/comment-threads/11", func(w http.ResponseWriter, _ *http.Request) {
+		fake.threadTrees++
+		_, _ = w.Write([]byte(`{"comment":{"id":11,"url":"https://example/c/11","text":"<p>Great demo</p>","threadId":11,"inReplyToCommentId":null,"createdAt":"2026-09-01T10:00:00Z","updatedAt":"2026-09-01T10:00:00Z","isDeleted":false,"totalReplies":1,"account":{"name":"viewer","displayName":"Viewer"}},"children":[{"comment":{"id":13,"url":"https://example/c/13","text":"<p>Thank you</p>","threadId":11,"inReplyToCommentId":11,"createdAt":"2026-09-01T10:30:00Z","updatedAt":"2026-09-01T10:30:00Z","isDeleted":false,"totalReplies":0,"account":{"name":"rodrigo","displayName":"Rodrigo"}},"children":[],"totalChildren":0}],"totalChildren":1}`))
+	})
+	mux.HandleFunc("/api/v1/videos/video-uuid-1/comment-threads/14", func(w http.ResponseWriter, _ *http.Request) {
+		fake.threadTrees++
+		http.Error(w, "threads without replies need no tree request", http.StatusTeapot)
 	})
 	mux.HandleFunc("/api/v1/videos/video-uuid-1/comments/11", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -201,22 +214,126 @@ func TestPeerTubeRequiresTitleAndChannel(t *testing.T) {
 }
 
 func TestPeerTubeComments(t *testing.T) {
-	server, _ := newFakePeerTube(t)
+	server, fake := newFakePeerTube(t)
 	defer server.Close()
 
 	adapter := NewPeerTubeAdapter(server.URL)
 	comments, err := adapter.ListComments(t.Context(), "atok", "demos", "video-uuid-1")
 	require.NoError(t, err)
-	require.Len(t, comments, 1)
-	require.Equal(t, "Great demo", comments[0].Text)
-	require.True(t, comments[0].CanReply)
-	require.True(t, comments[0].CanDelete)
-	require.False(t, comments[0].IsOurs)
+	byID := map[string]Comment{}
+	for _, comment := range comments {
+		byID[comment.ID] = comment
+	}
+	thread := byID["peertube:video-uuid-1:11"]
+	require.Equal(t, "Great demo", thread.Text)
+	require.Equal(t, "Viewer", thread.AuthorName)
+	require.Empty(t, thread.ParentID)
+	require.True(t, thread.CanReply)
+	require.True(t, thread.CanDelete)
+	require.False(t, thread.IsOurs)
 
-	replyID, err := adapter.ReplyToComment(t.Context(), "atok", "demos", comments[0].ID, "Thanks!")
+	reply := byID["peertube:video-uuid-1:13"]
+	require.Equal(t, "Thank you", reply.Text)
+	require.Equal(t, thread.ID, reply.ParentID)
+	require.True(t, reply.IsOurs)
+
+	require.Equal(t, "No replies here", byID["peertube:video-uuid-1:14"].Text)
+	require.Len(t, comments, 3)
+	require.Equal(t, "100", fake.threadCount, "threads must be requested in the largest page")
+	require.Equal(t, 1, fake.threadTrees, "only threads with replies need their tree")
+
+	replyID, err := adapter.ReplyToComment(t.Context(), "atok", "demos", thread.ID, "Thanks!")
 	require.NoError(t, err)
 	require.Equal(t, "peertube:video-uuid-1:12", replyID)
 	require.NoError(t, adapter.DeleteComment(t.Context(), "atok", "demos", replyID))
+}
+
+func TestPeerTubeCommentsFetchesTruncatedReplies(t *testing.T) {
+	mux := http.NewServeMux()
+	var replyStarts []string
+	var replyRequests []string
+	commentID := func(id int64) *int64 { return &id }
+
+	comment := func(id int64, parent *int64, children []peertubeCommentNode, totalChildren int64) peertubeCommentNode {
+		return peertubeCommentNode{
+			Comment: peertubeComment{
+				ID: id, Text: "Comment " + strconv.FormatInt(id, 10), ThreadID: 11,
+				InReplyToCommentID: parent,
+				Account:            peertubeAccount{Name: "viewer", DisplayName: "Viewer"},
+			},
+			Children:      children,
+			TotalChildren: totalChildren,
+		}
+	}
+	root := comment(11, nil, nil, 12)
+	deep := comment(16, commentID(15), nil, 1)
+	deepChain := comment(12, commentID(11), []peertubeCommentNode{
+		comment(13, commentID(12), []peertubeCommentNode{
+			comment(14, commentID(13), []peertubeCommentNode{
+				comment(15, commentID(14), []peertubeCommentNode{deep}, 1),
+			}, 1),
+		}, 1),
+	}, 1)
+	root.Children = []peertubeCommentNode{deepChain}
+
+	mux.HandleFunc("/api/v1/videos/video-uuid-1/comment-threads", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"total":1,"data":[{"id":11,"text":"Comment 11","threadId":11,"totalReplies":12,"account":{"name":"viewer","displayName":"Viewer"}}]}`))
+	})
+	mux.HandleFunc("/api/v1/videos/video-uuid-1/comment-threads/11", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(root)
+	})
+	mux.HandleFunc("/api/v1/videos/video-uuid-1/comments/", func(w http.ResponseWriter, r *http.Request) {
+		const prefix = "/api/v1/videos/video-uuid-1/comments/"
+		parts := strings.Split(strings.TrimPrefix(r.URL.Path, prefix), "/")
+		if len(parts) != 2 || parts[1] != "replies" {
+			http.NotFound(w, r)
+			return
+		}
+		replyRequests = append(replyRequests, parts[0])
+		start := r.URL.Query().Get("start")
+		replyStarts = append(replyStarts, start)
+		switch parts[0] {
+		case "11":
+			children := make([]peertubeCommentNode, 0, 10)
+			switch start {
+			case "1":
+				for id := int64(20); id < 30; id++ {
+					children = append(children, comment(id, commentID(11), nil, 0))
+				}
+			case "11":
+				children = append(children, comment(30, commentID(11), nil, 0))
+			default:
+				http.NotFound(w, r)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(struct {
+				Total int64                 `json:"total"`
+				Data  []peertubeCommentNode `json:"data"`
+			}{Total: 12, Data: children})
+		case "16":
+			_ = json.NewEncoder(w).Encode(struct {
+				Total int64                 `json:"total"`
+				Data  []peertubeCommentNode `json:"data"`
+			}{Total: 1, Data: []peertubeCommentNode{comment(17, commentID(16), nil, 0)}})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	comments, err := NewPeerTubeAdapter(server.URL).ListComments(t.Context(), "token", "channel", "video-uuid-1")
+	require.NoError(t, err)
+	require.Len(t, comments, 18)
+	require.Equal(t, []string{"11", "11", "16"}, replyRequests)
+	require.Equal(t, []string{"1", "11", "0"}, replyStarts)
+	require.Equal(t, "peertube:video-uuid-1:11", comments[len(comments)-1].ParentID)
+	byID := map[string]Comment{}
+	for _, item := range comments {
+		byID[item.ID] = item
+	}
+	require.Equal(t, "peertube:video-uuid-1:16", byID["peertube:video-uuid-1:17"].ParentID)
 }
 
 func TestPeerTubeAnalytics(t *testing.T) {
