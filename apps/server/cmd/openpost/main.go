@@ -54,6 +54,7 @@ import (
 	"github.com/openpost/backend/internal/services/externalapps"
 	"github.com/openpost/backend/internal/services/externalwebhooks"
 	"github.com/openpost/backend/internal/services/feedback"
+	"github.com/openpost/backend/internal/services/githubstars"
 	growthservice "github.com/openpost/backend/internal/services/growth"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/openpost/backend/internal/services/imagecaption"
@@ -898,6 +899,7 @@ func main() {
 		RunningVersion: version,
 		RunningBuild:   runningBuildRevision(),
 	})
+	githubStarsService := githubstars.NewService(githubstars.Options{})
 	apiroutes.RegisterHumaRoutes(api, apiroutes.RouteDeps{
 		DB:                        db,
 		Readiness:                 readiness,
@@ -989,6 +991,7 @@ func main() {
 		NotificationService:          notificationService,
 		OrganizationOwnershipService: organizationOwnershipService,
 		UpdateStatusService:          updateStatusService,
+		GitHubStarsService:           githubStarsService,
 		AppVersion:                   version,
 		AppRevision:                  runningBuildRevision(),
 		Edition:                      cfg.Edition,

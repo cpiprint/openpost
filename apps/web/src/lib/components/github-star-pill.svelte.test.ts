@@ -10,9 +10,7 @@ describe('GitHub star pill', () => {
 	it('shows the live count as a repository link', async () => {
 		vi.stubGlobal(
 			'fetch',
-			vi
-				.fn()
-				.mockResolvedValue(new Response(JSON.stringify({ stargazers_count: 512 }), { status: 200 }))
+			vi.fn().mockResolvedValue(new Response(JSON.stringify({ count: 512 }), { status: 200 }))
 		);
 
 		const screen = await render(GitHubStarPill);

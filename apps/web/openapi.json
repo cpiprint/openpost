@@ -7957,6 +7957,24 @@
 				],
 				"type": "object"
 			},
+			"GitHubStarsResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/GitHubStarsResponse.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"count": {
+						"description": "Current public repository star count",
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"type": "object"
+			},
 			"GrantResponse": {
 				"additionalProperties": false,
 				"properties": {
@@ -32945,6 +32963,37 @@
 				},
 				"summary": "Get feedback privacy and destination settings",
 				"tags": ["Feedback"]
+			}
+		},
+		"/github-stars": {
+			"get": {
+				"description": "Returns a cached public count for the OpenPost GitHub repository when GitHub is available.",
+				"operationId": "get-github-star-count",
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/GitHubStarsResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"default": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Error"
+					}
+				},
+				"security": [],
+				"summary": "Get the OpenPost GitHub star count",
+				"tags": ["System"]
 			}
 		},
 		"/growth": {

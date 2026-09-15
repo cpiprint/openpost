@@ -28,6 +28,7 @@ import (
 	"github.com/openpost/backend/internal/services/externalapps"
 	"github.com/openpost/backend/internal/services/externalwebhooks"
 	"github.com/openpost/backend/internal/services/feedback"
+	"github.com/openpost/backend/internal/services/githubstars"
 	growthservice "github.com/openpost/backend/internal/services/growth"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/openpost/backend/internal/services/imagecaption"
@@ -120,6 +121,7 @@ type RouteDeps struct {
 	NotificationService          *notifications.Service
 	OrganizationOwnershipService *organizationownership.Service
 	UpdateStatusService          *updatestatus.Service
+	GitHubStarsService           *githubstars.Service
 	ProviderReadinessService     *providerreadiness.Service
 	ConnectorRegistry            *connectors.Registry
 	ConnectorStore               *connectors.Store
@@ -329,6 +331,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	handlers.NewInstanceSettingsHandler(deps.InstanceSettingsService, deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewAIPromptHandler(deps.AIPromptService, deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewUpdateStatusHandler(deps.DB, deps.Authenticator, deps.UpdateStatusService, deps.InstanceSettingsService).RegisterRoutes(api)
+	handlers.NewGitHubStarsHandler(deps.GitHubStarsService).RegisterRoutes(api)
 
 	mcpOAuthHandler := deps.MCPOAuthHandler
 	if mcpOAuthHandler == nil {

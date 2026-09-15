@@ -21,6 +21,7 @@ var publicOperationIDs = map[string]struct{}{
 	"get-auth-configuration":             {},
 	"get-public-profile":                 {},
 	"get-running-version":                {},
+	"get-github-star-count":              {},
 	"get-telemetry-config":               {},
 	"health-check":                       {},
 	"list-capabilities":                  {},

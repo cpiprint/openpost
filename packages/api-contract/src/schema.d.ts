@@ -2373,6 +2373,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/github-stars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the OpenPost GitHub star count
+         * @description Returns a cached public count for the OpenPost GitHub repository when GitHub is available.
+         */
+        get: operations["get-github-star-count"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/growth": {
         parameters: {
             query?: never;
@@ -8844,6 +8864,19 @@ export interface components {
             timezone: string;
             /** Format: int64 */
             week_start: number;
+        };
+        GitHubStarsResponse: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/GitHubStarsResponse.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: int64
+             * @description Current public repository star count
+             */
+            count?: number;
         };
         GrantResponse: {
             created_at: string;
@@ -23043,6 +23076,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicConfig"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-github-star-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubStarsResponse"];
                 };
             };
             /** @description Error */
