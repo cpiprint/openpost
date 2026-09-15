@@ -366,6 +366,7 @@ func main() {
 		ClientToken:          cfg.PaddleClientToken,
 		AppURL:               cfg.FrontendURL,
 		ReturnURL:            cfg.PaddleCheckoutReturnURL,
+		DiscordWebhookURL:    cfg.BillingDiscordWebhookURL,
 		PurchaseChoiceSecret: cfg.JWTSecret,
 		Plans: billing.DefaultPlanCatalog(
 			billing.PaddlePriceIDs{Monthly: cfg.PaddleFounderMonthlyPriceID, Annual: cfg.PaddleFounderAnnualPriceID},

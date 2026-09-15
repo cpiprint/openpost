@@ -63,6 +63,8 @@ type Service struct {
 	paddle                  PaddleConfig
 	api                     PaddleAPI
 	apiInitErr              error
+	discordNotifier         *billingDiscordNotifier
+	discordInitErr          error
 	beforeSubscriptionApply func()
 }
 
@@ -73,6 +75,7 @@ type PaddleConfig struct {
 	ClientToken          string
 	AppURL               string
 	ReturnURL            string
+	DiscordWebhookURL    string
 	Plans                map[string]PlanConfig
 	PurchaseChoiceSecret string
 }
@@ -124,6 +127,7 @@ func NewService(db *bun.DB, webhookSecret string, paddleConfig ...PaddleConfig) 
 	if strings.TrimSpace(cfg.APIKey) != "" {
 		service.api, service.apiInitErr = newPaddleAPI(cfg)
 	}
+	service.discordNotifier, service.discordInitErr = newBillingDiscordNotifier(cfg.DiscordWebhookURL)
 	return service
 }
 
@@ -722,7 +726,7 @@ func (s *Service) AcceptPaddleWebhook(ctx context.Context, body []byte, signatur
 			result.Duplicate = true
 			return nil
 		}
-		if !eventNeedsReconciliation(event.EventType) {
+		if !eventNeedsReconciliation(event.EventType) && !eventNeedsNotification(event.EventType) {
 			return nil
 		}
 		return enqueueWebhookJob(txCtx, tx, body, s.now().UTC())
@@ -751,6 +755,12 @@ func eventNeedsReconciliation(eventType string) bool {
 	default:
 		return false
 	}
+}
+
+func eventNeedsNotification(eventType string) bool {
+	return strings.HasPrefix(eventType, "customer.") ||
+		strings.HasPrefix(eventType, "subscription.") ||
+		strings.HasPrefix(eventType, "transaction.")
 }
 
 func insertWebhookEvent(
@@ -788,51 +798,86 @@ func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error 
 		return fmt.Errorf("invalid queued Paddle webhook: %w", err)
 	}
 	entityID := eventEntityID(event.Data)
+	if entityID == "" && (eventNeedsReconciliation(event.EventType) || eventNeedsNotification(event.EventType)) {
+		return fmt.Errorf("paddle event missing entity id")
+	}
+	objects, err := s.processPaddleEvent(ctx, event, entityID)
+	if err != nil {
+		return err
+	}
+	return s.notifyPaddleEvent(ctx, event, objects.customer, objects.subscription, objects.transaction)
+}
+
+type paddleEventObjects struct {
+	customer     *paddle.Customer
+	subscription *paddle.Subscription
+	transaction  *paddle.Transaction
+}
+
+func (s *Service) processPaddleEvent(ctx context.Context, event paddleEvent, entityID string) (paddleEventObjects, error) {
 	switch {
 	case strings.HasPrefix(event.EventType, "subscription."):
-		return s.handleSubscriptionEvent(ctx, entityID)
-	case event.EventType == "transaction.completed":
-		return s.handleCompletedTransaction(ctx, entityID)
+		return s.processSubscriptionEvent(ctx, event.EventType, entityID)
+	case strings.HasPrefix(event.EventType, "transaction."):
+		return s.processTransactionEvent(ctx, event.EventType, entityID)
 	case strings.HasPrefix(event.EventType, "customer."):
-		if entityID == "" {
-			return fmt.Errorf("paddle customer event missing entity id")
-		}
-		return s.reconcileCustomerByID(ctx, entityID)
+		customer, err := s.fetchAndReconcileCustomer(ctx, entityID)
+		return paddleEventObjects{customer: customer}, err
 	default:
-		return nil
+		return paddleEventObjects{}, nil
 	}
 }
 
-func (s *Service) handleSubscriptionEvent(ctx context.Context, entityID string) error {
-	if entityID == "" {
-		return fmt.Errorf("paddle subscription event missing entity id")
-	}
+func (s *Service) processSubscriptionEvent(ctx context.Context, eventType, entityID string) (paddleEventObjects, error) {
 	subscription, err := s.api.GetSubscription(ctx, &paddle.GetSubscriptionRequest{SubscriptionID: entityID})
 	if err != nil {
-		return fmt.Errorf("fetching current Paddle subscription: %w", err)
+		return paddleEventObjects{}, fmt.Errorf("fetching current Paddle subscription: %w", err)
 	}
-	return s.reconcileSubscription(ctx, subscription, nil)
+	if eventNeedsReconciliation(eventType) {
+		if err := s.reconcileSubscription(ctx, subscription, nil); err != nil {
+			return paddleEventObjects{}, err
+		}
+	}
+	if strings.TrimSpace(subscription.CustomerID) == "" {
+		return paddleEventObjects{subscription: subscription}, nil
+	}
+	customer, err := s.fetchAndReconcileCustomer(ctx, subscription.CustomerID)
+	if err != nil {
+		return paddleEventObjects{}, err
+	}
+	return paddleEventObjects{customer: customer, subscription: subscription}, nil
 }
 
-func (s *Service) handleCompletedTransaction(ctx context.Context, entityID string) error {
-	if entityID == "" {
-		return fmt.Errorf("paddle transaction event missing entity id")
-	}
+func (s *Service) processTransactionEvent(ctx context.Context, eventType, entityID string) (paddleEventObjects, error) {
 	transaction, err := s.api.GetTransaction(ctx, &paddle.GetTransactionRequest{TransactionID: entityID})
 	if err != nil {
-		return fmt.Errorf("fetching current Paddle transaction: %w", err)
+		return paddleEventObjects{}, fmt.Errorf("fetching current Paddle transaction: %w", err)
 	}
-	if transaction.SubscriptionID != nil && strings.TrimSpace(*transaction.SubscriptionID) != "" {
-		subscription, err := s.api.GetSubscription(ctx, &paddle.GetSubscriptionRequest{SubscriptionID: *transaction.SubscriptionID})
-		if err != nil {
-			return fmt.Errorf("fetching Paddle subscription for transaction: %w", err)
+	var subscription *paddle.Subscription
+	if eventType == "transaction.completed" || eventType == "transaction.paid" {
+		subscriptionID := pointerString(transaction.SubscriptionID)
+		if subscriptionID != "" {
+			subscription, err = s.api.GetSubscription(ctx, &paddle.GetSubscriptionRequest{SubscriptionID: subscriptionID})
+			if err != nil {
+				return paddleEventObjects{}, fmt.Errorf("fetching Paddle subscription for transaction: %w", err)
+			}
+			if err := s.reconcileSubscription(ctx, subscription, transaction.CustomData); err != nil {
+				return paddleEventObjects{}, err
+			}
 		}
-		return s.reconcileSubscription(ctx, subscription, transaction.CustomData)
 	}
-	if transaction.CustomerID != nil {
-		return s.reconcileCustomerByID(ctx, *transaction.CustomerID)
+	customerID := firstNonEmpty(pointerString(transaction.CustomerID), transaction.Customer.ID)
+	if customerID == "" && subscription != nil {
+		customerID = subscription.CustomerID
 	}
-	return nil
+	var customer *paddle.Customer
+	if customerID != "" {
+		customer, err = s.fetchAndReconcileCustomer(ctx, customerID)
+		if err != nil {
+			return paddleEventObjects{}, err
+		}
+	}
+	return paddleEventObjects{customer: customer, subscription: subscription, transaction: transaction}, nil
 }
 
 func eventEntityID(data json.RawMessage) string {
@@ -846,11 +891,19 @@ func eventEntityID(data json.RawMessage) string {
 }
 
 func (s *Service) reconcileCustomerByID(ctx context.Context, customerID string) error {
+	_, err := s.fetchAndReconcileCustomer(ctx, customerID)
+	return err
+}
+
+func (s *Service) fetchAndReconcileCustomer(ctx context.Context, customerID string) (*paddle.Customer, error) {
 	customer, err := s.api.GetCustomer(ctx, &paddle.GetCustomerRequest{CustomerID: customerID})
 	if err != nil {
-		return fmt.Errorf("fetching current Paddle customer: %w", err)
+		return nil, fmt.Errorf("fetching current Paddle customer: %w", err)
 	}
-	return s.upsertCustomer(ctx, customer)
+	if err := s.upsertCustomer(ctx, customer); err != nil {
+		return nil, err
+	}
+	return customer, nil
 }
 
 func (s *Service) upsertCustomer(ctx context.Context, customer *paddle.Customer) error {

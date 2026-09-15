@@ -174,6 +174,7 @@ type Config struct {
 	PaddleEnvironment           string
 	PaddleClientToken           string
 	PaddleWebhookSecret         string
+	BillingDiscordWebhookURL    string
 	PaddleCheckoutReturnURL     string
 	PaddleFounderMonthlyPriceID string
 	PaddleFounderAnnualPriceID  string
@@ -371,6 +372,7 @@ func Load() *Config {
 		PaddleEnvironment:           strings.ToLower(strings.TrimSpace(getEnvDefault("OPENPOST_PADDLE_ENVIRONMENT", ""))),
 		PaddleClientToken:           getEnvDefault("OPENPOST_PADDLE_CLIENT_TOKEN", ""),
 		PaddleWebhookSecret:         getEnvDefault("OPENPOST_PADDLE_WEBHOOK_SECRET", ""),
+		BillingDiscordWebhookURL:    strings.TrimSpace(getEnvDefault("OPENPOST_BILLING_DISCORD_WEBHOOK_URL", "")),
 		PaddleCheckoutReturnURL:     strings.TrimSpace(getEnvDefault("OPENPOST_PADDLE_CHECKOUT_RETURN_URL", "")),
 		PaddleFounderMonthlyPriceID: getEnvDefault("OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID", ""),
 		PaddleFounderAnnualPriceID:  getEnvDefault("OPENPOST_PADDLE_FOUNDER_ANNUAL_PRICE_ID", ""),
@@ -702,6 +704,9 @@ func (c *Config) ValidateRuntime() error {
 	if err := c.validateProxyAuthentication(); err != nil {
 		return err
 	}
+	if err := validateBillingDiscordWebhookURL(c.BillingDiscordWebhookURL); err != nil {
+		return err
+	}
 	if c.XAccountHistoryReadRequestsPerDay < 0 {
 		return fmt.Errorf("OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY must be >= 0")
 	}
@@ -732,6 +737,25 @@ func (c *Config) ValidateRuntime() error {
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("OPENPOST_EDITION=cloud requires: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func validateBillingDiscordWebhookURL(rawURL string) error {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return nil
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.Hostname() == "" {
+		return fmt.Errorf("OPENPOST_BILLING_DISCORD_WEBHOOK_URL must be an HTTPS Discord webhook URL")
+	}
+	host := strings.ToLower(parsed.Hostname())
+	if host != "discord.com" && host != "discordapp.com" {
+		return fmt.Errorf("OPENPOST_BILLING_DISCORD_WEBHOOK_URL must use discord.com or discordapp.com")
+	}
+	if !strings.HasPrefix(parsed.EscapedPath(), "/api/webhooks/") {
+		return fmt.Errorf("OPENPOST_BILLING_DISCORD_WEBHOOK_URL must point to a Discord webhook")
 	}
 	return nil
 }

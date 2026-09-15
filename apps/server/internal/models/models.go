@@ -882,11 +882,12 @@ type BillingSubscription struct {
 type BillingWebhookEvent struct {
 	bun.BaseModel `bun:"table:billing_webhook_events"`
 
-	EventID     string    `bun:",pk" json:"event_id"`
-	Provider    string    `bun:",notnull,default:'paddle'" json:"provider"`
-	EventType   string    `bun:",notnull" json:"event_type"`
-	OccurredAt  time.Time `bun:",nullzero" json:"occurred_at"`
-	ProcessedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"processed_at"`
+	EventID                   string    `bun:",pk" json:"event_id"`
+	Provider                  string    `bun:",notnull,default:'paddle'" json:"provider"`
+	EventType                 string    `bun:",notnull" json:"event_type"`
+	OccurredAt                time.Time `bun:",nullzero" json:"occurred_at"`
+	ProcessedAt               time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"processed_at"`
+	DiscordNotificationSentAt time.Time `bun:"discord_notification_sent_at,nullzero" json:"-"`
 }
 
 type BillingCheckoutAttempt struct {

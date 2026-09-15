@@ -48,9 +48,10 @@ changes live in [Developer Docs](../../development/index.md).
 - [ ] Set `OPENPOST_S3_PUBLIC_BASE_URL` to a stable public media origin.
 - [ ] Verify the S3 bucket lifecycle policy and object access model before launch.
 - [ ] Set `OPENPOST_PADDLE_API_KEY`, `OPENPOST_PADDLE_ENVIRONMENT=production`, `OPENPOST_PADDLE_CLIENT_TOKEN`, `OPENPOST_PADDLE_WEBHOOK_SECRET`, and `OPENPOST_PADDLE_CHECKOUT_RETURN_URL`.
+- [ ] Set `OPENPOST_BILLING_DISCORD_WEBHOOK_URL_FILE` to the encrypted Discord webhook when maintainer billing notifications are enabled.
 - [ ] Set the monthly and annual `OPENPOST_PADDLE_<PLAN>_<PERIOD>_PRICE_ID` values for Solo (`FOUNDER`), Team, and Agency.
 - [ ] Confirm the production API key and client token have live prefixes; never deploy sandbox credentials to the Hosted service.
-- [ ] Configure Paddle to send customer, subscription, and `transaction.completed` events to `/api/v1/billing/paddle/webhook`; send a signed test event and confirm it is stored once and reconciled through the billing job.
+- [ ] Configure Paddle to send customer, subscription, and transaction lifecycle events to `/api/v1/billing/paddle/webhook`; send a signed test event and confirm it is stored once, reconciled through the billing job, and produces one Discord embed when billing notifications are enabled.
 - [ ] Set the minimum and maximum quantity to `1` for every Paddle plan price so buyers cannot add duplicate copies of a workspace subscription.
 - [ ] Before upgrading from Whop billing, migrate every active customer to Paddle and confirm the Paddle subscription is reconciled locally. Historical Whop rows do not grant entitlements after the upgrade.
 - [ ] Complete an embedded checkout smoke: plan and period selection, $0 trial start, return to OpenPost, local `trialing` status, and billing management URL.

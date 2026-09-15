@@ -144,6 +144,7 @@ var configTestEnvKeys = []string{
 	"OPENPOST_PADDLE_ENVIRONMENT",
 	"OPENPOST_PADDLE_CLIENT_TOKEN",
 	"OPENPOST_PADDLE_WEBHOOK_SECRET",
+	"OPENPOST_BILLING_DISCORD_WEBHOOK_URL",
 	"OPENPOST_PADDLE_CHECKOUT_RETURN_URL",
 	"OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID",
 	"OPENPOST_PADDLE_FOUNDER_ANNUAL_PRICE_ID",
@@ -339,6 +340,23 @@ func TestLoadSupportsHostedAndSelfHostedProviderBotContracts(t *testing.T) {
 	require.Equal(t, "discord", cfg.ProviderApps[7].Provider)
 	require.Equal(t, "bot", cfg.ProviderApps[7].ConnectionMode)
 	require.Equal(t, "https://app.openpo.st/api/v1/accounts/discord/callback", cfg.ProviderApps[7].RedirectURI)
+}
+
+func TestLoadReadsBillingDiscordWebhookFromFile(t *testing.T) {
+	t.Setenv("OPENPOST_BILLING_DISCORD_WEBHOOK_URL_FILE", writeEnvFile(t, "billing-discord-webhook", "https://discord.com/api/webhooks/test/token\n"))
+
+	cfg := Load()
+
+	require.Equal(t, "https://discord.com/api/webhooks/test/token", cfg.BillingDiscordWebhookURL)
+	require.NoError(t, cfg.ValidateRuntime())
+}
+
+func TestValidateRuntimeRejectsNonDiscordBillingWebhook(t *testing.T) {
+	t.Setenv("OPENPOST_BILLING_DISCORD_WEBHOOK_URL", "https://example.com/hooks/test")
+
+	err := Load().ValidateRuntime()
+
+	require.ErrorContains(t, err, "OPENPOST_BILLING_DISCORD_WEBHOOK_URL")
 }
 
 func TestLoadCloudCORSOriginsExcludeLocalDevelopmentDefaults(t *testing.T) {
