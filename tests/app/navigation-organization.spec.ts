@@ -41,10 +41,9 @@ test("navigation separates work, workspace management, and personal preferences"
     .click();
   await expect(page).toHaveURL(/\/calendar$/);
   await page.goto("/media");
-  await page
-    .getByTestId("sidebar-workspace-navigation")
-    .getByRole("button", { name: "Publications", exact: true })
-    .click();
+  const workspaceFooter = page.getByTestId("sidebar-workspace-footer");
+  await workspaceFooter.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Publications", exact: true }).click();
   await expect(page).toHaveURL(/\/calendar$/);
   await page.reload();
   await page
@@ -109,9 +108,10 @@ for (const width of [1440, 390, 320]) {
       await page.keyboard.press("Escape");
       await expect(dialog).not.toBeVisible();
       if (width >= 768) {
-        const media = page
-          .getByTestId("sidebar-workspace-navigation")
-          .getByRole("button", { name: "Media", exact: true });
+        const sidebarFooter = page.getByTestId("sidebar-workspace-footer");
+        await sidebarFooter.getByRole("button", { name: "More", exact: true }).click();
+        const media = page.getByRole("menuitem", { name: "Media", exact: true });
+        await expect(media).toBeVisible();
         const idle = await media.evaluate((element) => getComputedStyle(element).backgroundColor);
         await media.hover();
         await expect

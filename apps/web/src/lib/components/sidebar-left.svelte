@@ -52,13 +52,13 @@
 		}))
 	);
 	const workspaceNavigationItems = $derived(
-		navigationItems.filter((item) =>
-			['publications', 'communications', 'analytics', 'media'].includes(item.id)
-		)
+		navigationItems.filter((item) => ['communications', 'analytics'].includes(item.id))
 	);
 	const sidebarNavigationItems = $derived(workspaceNavigationItems);
 	const moreNavigationItems = $derived(
-		navigationItems.filter((item) => ['growth', 'editors'].includes(item.id))
+		navigationItems.filter((item) =>
+			['publications', 'media', 'growth', 'editors'].includes(item.id)
+		)
 	);
 	const showDesktopPlanner = $derived(!sidebar.isMobile && sidebar.state === 'expanded');
 
