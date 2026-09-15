@@ -16,6 +16,10 @@ for (const width of [1280, 390, 320])
       await createWorkspace(request, auth.token, "Query settings");
       await authenticatePage(page, auth.token);
       await page.goto("/settings?tab=profile");
+      test.skip(
+        (await page.locator('meta[name="openpost-edition"][content="cloud"]').count()) === 0,
+        "Plan & usage is hosted-only",
+      );
       await expect(page.getByTestId("settings-navigation")).toBeVisible();
       if (width >= 768) await page.getByRole("link", { name: "Organization", exact: true }).click();
       else {

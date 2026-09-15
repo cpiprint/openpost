@@ -62,6 +62,10 @@ test("failed-payment recovery stays account-wide, permission-aware, and clears f
   await authenticatePage(page, auth.token);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/publications");
+  test.skip(
+    (await page.locator('meta[name="openpost-edition"][content="cloud"]').count()) === 0,
+    "Billing recovery is hosted-only",
+  );
 
   const notice = page.getByTestId("billing-recovery-notice");
   await expect(notice).toBeVisible();
