@@ -1,51 +1,14 @@
 ---
 title: Automation
-description: Use the CLI, MCP, or the OpenPost n8n node.
+description: Choose the CLI, MCP, or the OpenPost n8n node.
 icon: Workflow
 ---
 
-Choose the tool that fits where your work starts. Use the CLI for shell commands, MCP for an AI assistant, or the n8n node for a workflow. Each uses OpenPost's workspace access rules. For unattended automation, create a separate token for each integration and bind it to one workspace when possible.
+Choose the tool that fits where your work starts. Each uses OpenPost's workspace access rules. For unattended automation, create a separate token for each integration and bind it to one workspace when possible.
 
-## Run commands with the CLI
-
-Install the matching release binary from [GitHub Releases](https://github.com/getopenpost/openpost/releases). The CLI talks to a running OpenPost instance.
-
-Log in with a browser flow:
-
-```sh
-openpost auth login https://app.openpo.st
-```
-
-For a headless shell, print the verification URL and code:
-
-```sh
-openpost auth login https://app.openpo.st --device
-```
-
-For CI or another unattended shell, pass a token through stdin:
-
-```sh
-printf '%s\n' "$OPENPOST_TOKEN" | openpost auth login https://app.openpo.st --with-token
-```
-
-Choose a workspace and inspect connected accounts:
-
-```sh
-openpost workspace list
-openpost workspace use personal
-openpost account list
-```
-
-Connect new social accounts in the web app at `https://app.openpo.st/settings?tab=accounts`. The CLI deliberately has no provider credential flow.
-
-Create a draft, then schedule a post:
-
-```sh
-openpost post create --content "Launch note" --accounts x
-openpost post create --content "Launch note" --accounts x --schedule "tomorrow 2pm"
-```
-
-Use `--schedule next-slot` to use the next available workspace slot. Use `openpost post list --status scheduled` to inspect scheduled work. Use `publication create` for format-first video and link publications.
+- Shell commands, scripts, and CI: [Command-line interface](/guides/cli), including the `openpost-cli` agent skill.
+- AI assistants such as ChatGPT, Claude, and Cursor: [MCP](/mcp).
+- Timers and webhooks: the n8n workflow below.
 
 ## Connect an AI assistant
 

@@ -54,8 +54,24 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "guides/automation.mdx",
     "title": "Automation",
-    "description": "Use the CLI, MCP, or the OpenPost n8n node.",
+    "description": "Choose the CLI, MCP, or the OpenPost n8n node.",
     "route": "/guides/automation",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "user-guide"
+    }
+  },
+  {
+    "page": "guides/cli.mdx",
+    "title": "Command-line interface",
+    "description": "Install the openpost CLI, sign in, and publish from a shell or script.",
+    "route": "/guides/cli",
     "agentRepresentation": {
       "membership": "ordinary"
     },

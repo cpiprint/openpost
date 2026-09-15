@@ -18,8 +18,8 @@ export const developerDocsUrl =
 	'https://github.com/getopenpost/openpost/blob/main/docs/development/index.md';
 export const apiGuideUrl = 'https://docs.openpo.st/api-reference';
 export const openApiUrl = 'https://docs.openpo.st/openapi.json';
-export const cliDocsUrl = 'https://docs.openpo.st/guides/automation';
-export const mcpDocsUrl = 'https://docs.openpo.st/guides/automation';
+export const cliDocsUrl = 'https://docs.openpo.st/guides/cli';
+export const mcpDocsUrl = 'https://docs.openpo.st/mcp';
 export const apiTokenDocsUrl = 'https://docs.openpo.st/api-reference';
 export const agentPublishingDocsUrl = 'https://docs.openpo.st/guides/automation';
 export const docsUrl = userDocsUrl;
