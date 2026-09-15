@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.34.0] - 2026-09-15
+
+### Fixed
+
+- Keep the composer publishing warning hidden while pasted media is uploading, and align a lone required destination selector with its label.
+- Keep URLs in post text when publishing media to X, Threads, Mastodon, and LinkedIn.
+- Remove stale native link settings from existing media publications during readiness checks and publishing.
+- Verify that ordinary URLs in body text remain supported alongside media, using the provider's text-plus-media APIs for [X](https://docs.x.com/x-api/posts/create-post), [Threads](https://www.postman.com/meta/threads/documentation/dht3nzz/threads-api), [Mastodon](https://docs.joinmastodon.org/methods/statuses/), and [LinkedIn](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/multiimage-post-api?view=li-lms-2026-08). Native link cards and articles remain format-specific.
+- Keep the MCP authorization action locked until its callback redirect starts, so repeated clicks cannot consume a second one-time authorization code or show a failure after the connection already succeeded.
+
+### Added
+
+- Keep configured Discord bot accounts connected and online through the worker Gateway.
+- Rotate a truthful bot presence, with optional Twitch or YouTube streaming mode.
+- Add the live OpenPost GitHub star count beside the authenticated app logo, linking to the repository.
+
+### Changed
+
+- Move Publications and Media into the sidebar's More menu, keeping the primary navigation focused on Inbox and Analytics.
+
 ## [4.33.0] - 2026-09-15
 
 ### Fixed
