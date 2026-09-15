@@ -66,10 +66,18 @@
 	let panelFailure = $state<{ tab: SettingsTabID; message: string } | null>(null);
 	const pendingPanels = new Set<SettingsTabID>();
 	const authState = $derived($auth);
+	// Hosted (Paddle) billing has no meaning on self-hosted instances: the
+	// server only renders the openpost-edition meta tag for cloud, so its
+	// absence means this is self-hosted and the Plan & usage tab stays hidden.
+	// Default to visible during SSR so hosted renders do not flash.
+	const showHostedBilling =
+		typeof document === 'undefined' ||
+		document.querySelector('meta[name="openpost-edition"]')?.getAttribute('content') === 'cloud';
 	const activeSettingsTab = $derived(
 		normalizeSettingsTab(
 			page.url.searchParams.get('tab') || page.url.hash.replace(/^#/, '') || null,
-			Boolean(authState.user?.is_admin)
+			Boolean(authState.user?.is_admin),
+			showHostedBilling
 		)
 	);
 	const panelError = $derived(panelFailure?.tab === activeSettingsTab ? panelFailure.message : '');
@@ -251,6 +259,7 @@
 		<SettingsNavigation
 			active={activeSettingsTab}
 			showInstance={Boolean(authState.user?.is_admin)}
+			{showHostedBilling}
 		/>
 	{/snippet}
 	<div class="min-w-0 space-y-8">

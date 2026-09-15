@@ -28,4 +28,23 @@ describe('settings destination registry', () => {
 		expect(normalizeSettingsTab('team', false)).toBe('members');
 		expect(normalizeSettingsTab('social-accounts', false)).toBe('accounts');
 	});
+
+	it('hides hosted billing outside cloud editions', () => {
+		expect(getSettingsDestinations(false).some((destination) => destination.id === 'plan')).toBe(
+			true
+		);
+		expect(
+			getSettingsDestinations(false, {}, false).some((destination) => destination.id === 'plan')
+		).toBe(false);
+		expect(
+			getSettingsDestinations(false, {}, false).some(
+				(destination) => destination.group === 'organization'
+			)
+		).toBe(true);
+		expect(normalizeSettingsTab('plan', false, false)).toBe('general');
+		expect(normalizeSettingsTab('billing', false, false)).toBe('general');
+		expect(normalizeSettingsTab('organization', true, false)).toBe('general');
+		expect(normalizeSettingsTab('plan', false, true)).toBe('plan');
+		expect(normalizeSettingsTab('appearance', false, false)).toBe('appearance');
+	});
 });

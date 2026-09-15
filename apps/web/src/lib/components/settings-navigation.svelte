@@ -13,11 +13,12 @@
 	interface Props {
 		active: SettingsDestinationID;
 		showInstance?: boolean;
+		showHostedBilling?: boolean;
 	}
 
-	let { active, showInstance = false }: Props = $props();
+	let { active, showInstance = false, showHostedBilling = true }: Props = $props();
 
-	const allDestinations = $derived(getSettingsDestinations(showInstance));
+	const allDestinations = $derived(getSettingsDestinations(showInstance, {}, showHostedBilling));
 	const activeDestination = $derived(
 		allDestinations.find((destination) => destination.id === active) ?? allDestinations[0]
 	);

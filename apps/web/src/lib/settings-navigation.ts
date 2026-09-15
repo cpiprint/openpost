@@ -53,7 +53,9 @@ const settingsDestinationDefinitions = [
 		group: 'workspace',
 		label: m.settings_general,
 		description: ({ workspaceName }: SettingsDestinationContext) =>
-			m.settings_general_description({ workspace: workspaceName || m.settings_workspace() }),
+			m.settings_general_description({
+				workspace: workspaceName || m.settings_workspace()
+			}),
 		loadingVariant: 'form',
 		aliases: ['workspace', 'media']
 	},
@@ -187,10 +189,15 @@ export const settingsTabIDs: readonly SettingsTabID[] = settingsDestinationDefin
 
 export function getSettingsDestinations(
 	includeInstance: boolean,
-	context: SettingsDestinationContext = {}
+	context: SettingsDestinationContext = {},
+	includeHostedBilling = true
 ): SettingsDestination[] {
 	return settingsDestinationDefinitions
-		.filter((destination) => includeInstance || destination.group !== 'instance')
+		.filter(
+			(destination) =>
+				(includeInstance || destination.group !== 'instance') &&
+				(includeHostedBilling || destination.id !== 'plan')
+		)
 		.map((destination) => resolveSettingsDestination(destination, context));
 }
 
@@ -205,7 +212,8 @@ export function getSettingsDestination(
 
 export function normalizeSettingsTab(
 	value: string | null,
-	includeInstance: boolean
+	includeInstance: boolean,
+	includeHostedBilling = true
 ): SettingsTabID {
 	if (!value) return 'general';
 	const destination = settingsDestinationDefinitions.find((candidate) => {
@@ -213,6 +221,7 @@ export function normalizeSettingsTab(
 		return candidate.id === value || aliases.includes(value);
 	});
 	if (!destination || (!includeInstance && destination.group === 'instance')) return 'general';
+	if (!includeHostedBilling && destination.id === 'plan') return 'general';
 	return destination.id;
 }
 
