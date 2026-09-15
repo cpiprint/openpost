@@ -1,8 +1,10 @@
+import { z } from 'zod';
+
 const GITHUB_REPOSITORY_API_URL = 'https://api.github.com/repos/getopenpost/openpost';
 
-type GitHubRepositoryResponse = {
-	stargazers_count?: unknown;
-};
+const githubRepositoryResponseSchema = z.object({
+	stargazers_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
+});
 
 type GitHubFetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -17,12 +19,8 @@ export async function fetchGitHubStarCount(fetcher: GitHubFetcher = fetch): Prom
 		});
 		if (!response.ok) return null;
 
-		const data = (await response.json()) as GitHubRepositoryResponse;
-		return typeof data.stargazers_count === 'number' &&
-			Number.isSafeInteger(data.stargazers_count) &&
-			data.stargazers_count >= 0
-			? data.stargazers_count
-			: null;
+		const data = githubRepositoryResponseSchema.safeParse(await response.json());
+		return data.success ? data.data.stargazers_count : null;
 	} catch {
 		return null;
 	}
