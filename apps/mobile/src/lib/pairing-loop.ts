@@ -9,6 +9,12 @@ type PairingLoopOptions = {
   pause?: (milliseconds: number) => Promise<void>;
 };
 
+export type PairingAttemptAction = "start" | "redirect";
+
+export function pairingAttemptAction(token: string | null): PairingAttemptAction {
+  return token ? "redirect" : "start";
+}
+
 export async function waitForPairingResult({
   deviceCode,
   isCancelled,

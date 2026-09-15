@@ -1,8 +1,13 @@
 import { describe, expect, mock, test } from "bun:test";
 
-import { waitForPairingResult } from "./pairing-loop";
+import { pairingAttemptAction, waitForPairingResult } from "./pairing-loop";
 
 describe("pairing poll loop", () => {
+  test("redirects an authenticated remount instead of starting a replacement code", () => {
+    expect(pairingAttemptAction(null)).toBe("start");
+    expect(pairingAttemptAction("approved-token")).toBe("redirect");
+  });
+
   test("stops immediately when the sign-in identity changes", async () => {
     const abort = new DOMException("The sign-in session changed", "AbortError");
     const poll = mock(async () => {
