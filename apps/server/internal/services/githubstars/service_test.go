@@ -38,7 +38,7 @@ func TestCountCachesSuccessfulResponse(t *testing.T) {
 func TestCountRetainsPreviousValueAfterFailure(t *testing.T) {
 	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
 	status := http.StatusOK
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(status)
 		if status == http.StatusOK {
 			_, _ = w.Write([]byte(`{"stargazers_count":513}`))

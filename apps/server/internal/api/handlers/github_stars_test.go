@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +18,7 @@ func TestGitHubStarsEndpointIsPublicWhenTheCountIsUnavailable(t *testing.T) {
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewGitHubStarsHandler(nil).RegisterRoutes(api)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/github-stars", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/github-stars", nil)
 	resp := httptest.NewRecorder()
 	e.ServeHTTP(resp, req)
 
