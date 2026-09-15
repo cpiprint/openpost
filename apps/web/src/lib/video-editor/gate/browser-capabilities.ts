@@ -14,7 +14,7 @@ interface BrowserNavigator {
 	userAgent?: string;
 	brave?: unknown;
 	storage?: {
-		getDirectory?: () => Promise<unknown>;
+		getDirectory?: () => Promise<object>;
 	};
 }
 
@@ -63,13 +63,14 @@ function supportsMediaProcessing(environment: BrowserEnvironment): boolean {
 
 function currentEnvironment(): BrowserEnvironment {
 	if (typeof window === 'undefined') return {};
-	const browser = globalThis as unknown as BrowserEnvironment;
+	// SAFETY: this adapter reads optional browser capabilities from the current global object after the SSR guard.
+	const browser = globalThis as BrowserEnvironment;
 	return {
 		isSecureContext: window.isSecureContext,
 		showDirectoryPicker: window.showDirectoryPicker,
 		showOpenFilePicker: window.showOpenFilePicker,
 		indexedDB: browser.indexedDB,
-		navigator: window.navigator as BrowserNavigator,
+		navigator: window.navigator,
 		VideoEncoder: browser.VideoEncoder,
 		VideoDecoder: browser.VideoDecoder,
 		AudioEncoder: browser.AudioEncoder,

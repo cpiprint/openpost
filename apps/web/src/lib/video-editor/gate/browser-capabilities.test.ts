@@ -7,7 +7,7 @@ type TestEnvironment = {
 	showOpenFilePicker?: () => Promise<void>;
 	indexedDB: { open: () => undefined };
 	navigator: {
-		storage: { getDirectory: () => Promise<unknown> };
+		storage: { getDirectory: () => Promise<object> };
 		userAgent: string;
 		brave?: unknown;
 	};
@@ -18,7 +18,7 @@ type TestEnvironment = {
 	VideoFrame: () => void;
 	AudioData: () => void;
 	OffscreenCanvas: () => void;
-	WebAssembly: { instantiate: () => Promise<unknown> };
+	WebAssembly: { instantiate: () => Promise<object> };
 };
 
 function supportedEnvironment(): TestEnvironment {
@@ -38,7 +38,7 @@ function supportedEnvironment(): TestEnvironment {
 		VideoFrame: function VideoFrame() {},
 		AudioData: function AudioData() {},
 		OffscreenCanvas: function OffscreenCanvas() {},
-		WebAssembly: { instantiate: () => Promise.resolve() }
+		WebAssembly: { instantiate: () => Promise.resolve({}) }
 	};
 }
 

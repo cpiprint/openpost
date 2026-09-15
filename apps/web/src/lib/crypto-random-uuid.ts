@@ -1,3 +1,5 @@
+/* oxlint-disable anti-slop/no-runtime-typeof -- optional Web Crypto methods require an intentional compatibility probe. */
+
 type CryptoWithOptionalRandomUUID = Crypto & {
 	randomUUID?: () => string;
 };
@@ -20,6 +22,7 @@ function generateUUID(cryptoAPI: CryptoWithOptionalRandomUUID | undefined): stri
 }
 
 export function createUUID(): string {
+	// SAFETY: the browser exposes the Web Crypto object globally; the optional cast only models a method missing from older TypeScript DOM types.
 	const cryptoAPI = globalThis.crypto as CryptoWithOptionalRandomUUID | undefined;
 	if (typeof cryptoAPI?.randomUUID === 'function') return cryptoAPI.randomUUID();
 	return generateUUID(cryptoAPI);
@@ -27,6 +30,7 @@ export function createUUID(): string {
 
 /** Add the missing method for legacy browsers so existing call sites stay compatible. */
 export function installCryptoRandomUUID(): void {
+	// SAFETY: the browser exposes the Web Crypto object globally; the optional cast only models a method missing from older TypeScript DOM types.
 	const cryptoAPI = globalThis.crypto as CryptoWithOptionalRandomUUID | undefined;
 	if (!cryptoAPI || typeof cryptoAPI.randomUUID === 'function') return;
 	try {
