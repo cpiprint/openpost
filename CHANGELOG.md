@@ -12,6 +12,11 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Accept maximum-lifetime API tokens within five minutes of client clock skew instead of rejecting them at creation.
+- Coalesce editor ResizeObserver callbacks into one frame and skip unchanged sizes to stop layout loops.
+- Treat blocked OPFS storage as unavailable before the video editor loads, with actionable export errors.
+- Recover video-editor handle-database reads from stale IndexedDB transactions instead of filing errors.
+- Drop benign ResizeObserver and contentless script-error noise from telemetry while preserving console output.
 - Keep the GitHub star link out of the authenticated application sidebar and allow the hosted marketing site to read the cached public count.
 - Release candidates now prove the full core product on their own tag instead of inheriting proof from a path-filtered main run.
 - Server-only releases keep the released Android identity and publish without waiting for Android packaging; mobile releases still require a monotonic identity advance.
