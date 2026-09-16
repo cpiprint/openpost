@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.34.1] - 2026-09-16
+
+### Changed
+
+- Show the live OpenPost GitHub star count beside the wordmark on the public landing navigation.
+
+### Fixed
+
+- Keep the GitHub star link out of the authenticated application sidebar and allow the hosted marketing site to read the cached public count.
+- Release candidates now prove the full core product on their own tag instead of inheriting proof from a path-filtered main run.
+- Server-only releases keep the released Android identity and publish without waiting for Android packaging; mobile releases still require a monotonic identity advance.
+- Release preparation validates changelog and contract inputs before touching files, stages only the changelog and its fragments, and no longer captures screenshots, runs broad browser suites, or waits for main CI.
+- A broken production no longer blocks shipping its fix; readiness gates deployment health instead.
+- Generated-contract checks restore the working tree before reporting, and provider-claim derivation survives import and variable renames.
+
 ## [4.34.0] - 2026-09-15
 
 ### Fixed
