@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Discover only the connected account's own Lemmy and PieFed posts, and upload their images where each server accepts them.
 - Accept maximum-lifetime API tokens within five minutes of client clock skew instead of rejecting them at creation.
 - Coalesce editor ResizeObserver callbacks into one frame and skip unchanged sizes to stop layout loops.
 - Treat blocked OPFS storage as unavailable before the video editor loads, with actionable export errors.
