@@ -29,10 +29,15 @@ const (
 	DefaultScope      = ScopeCLI
 	DefaultExpiration = 90 * 24 * time.Hour
 	MaximumExpiration = 365 * 24 * time.Hour
-	MaximumNameLength = 120
-	secretBytes       = 32
-	hashHexLength     = 64
-	prefixHexLength   = 8
+	// expiryClockSkewLeeway tolerates client/server clock differences when a
+	// caller requests the maximum lifetime computed against its own clock
+	// (the settings UI's "1 year" preset is exactly 365 days). The stored
+	// expiry is unchanged, so no token gains extra lifetime beyond the skew.
+	expiryClockSkewLeeway = 5 * time.Minute
+	MaximumNameLength     = 120
+	secretBytes           = 32
+	hashHexLength         = 64
+	prefixHexLength       = 8
 )
 
 var (
@@ -134,7 +139,7 @@ func (s *Service) generateTokenWithOptions(
 	} else {
 		expiry = now.Add(DefaultExpiration)
 	}
-	if !expiry.After(now) || expiry.After(now.Add(MaximumExpiration)) {
+	if !expiry.After(now) || expiry.After(now.Add(MaximumExpiration+expiryClockSkewLeeway)) {
 		return nil, ErrInvalidExpiry
 	}
 

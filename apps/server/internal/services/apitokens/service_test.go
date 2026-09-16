@@ -143,6 +143,22 @@ func TestGenerateTokenRejectsExplicitNoExpiryAndUnsafeLifetimes(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidExpiry)
 }
 
+func TestGenerateTokenAcceptsMaximumLifetimeWithClientClockSkew(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := newServiceTestDB(t)
+	seedServiceUser(ctx, t, db)
+
+	// The UI's "1 year" preset is exactly 365 days computed against the
+	// client's clock. A client slightly ahead of the server must not be
+	// rejected for requesting the documented maximum.
+	skewed := time.Now().UTC().Add(MaximumExpiration + time.Minute)
+	generated, err := NewService(db).GenerateToken(ctx, "user-1", "CI", DefaultScope, &skewed)
+	require.NoError(t, err)
+	require.WithinDuration(t, skewed, generated.Model.ExpiresAt, time.Second)
+}
+
 func TestGenerateTokenRejectsExternalScopeWithoutInstallation(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
