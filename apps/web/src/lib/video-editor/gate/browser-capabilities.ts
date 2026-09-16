@@ -54,6 +54,8 @@ async function supportsOpfsSubdirectories(
 	storage: NonNullable<BrowserNavigator['storage']>
 ): Promise<boolean> {
 	try {
+		// SAFETY: getDirectory is navigator.storage.getDirectory, whose result
+		// always exposes directory reads; subdirectory support is probed below.
 		const root = (await getDirectory.call(storage)) as Partial<OpfsDirectoryHandle>;
 		if (typeof root.getDirectoryHandle !== 'function') return false;
 		const probe = await root.getDirectoryHandle('openpost-capability-probe', { create: true });

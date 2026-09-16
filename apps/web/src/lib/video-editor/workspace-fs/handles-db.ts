@@ -144,11 +144,11 @@ function compoundKey(kind: HandleKind, id: string): string {
 
 export async function getHandle(kind: HandleKind, id: string): Promise<HandleRecord | null> {
 	try {
+		// SAFETY: the handles store only persists HandleRecord values keyed by
+		// compoundKey, so a completed get resolves to HandleRecord | undefined.
 		const record = (await withHandlesStore('readonly', (store) =>
 			store.get(compoundKey(kind, id))
 		)) as HandleRecord | undefined;
-		// SAFETY: the store only persists HandleRecord values.
-		// SAFETY: the stored value satisfies HandleRecord | undefined here.
 		return record ?? null;
 	} catch (error) {
 		if (isStaleStorageError(error)) {
