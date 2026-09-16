@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.34.2] - 2026-09-16
+
+### Fixed
+
+- Release announcements now fire on publication itself, so a skipped or retried pipeline step can no longer drop the Discord announcement.
+- Server-only releases publish without waiting on the skipped Android packaging job.
+
 ## [4.34.1] - 2026-09-16
 
 ### Changed
