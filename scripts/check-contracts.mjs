@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -22,16 +22,26 @@ const generatedPaths = [
   "packages/n8n-nodes-openpost/nodes/OpenPost/v1/descriptions/generated/descriptions.ts",
   "packages/n8n-nodes-openpost/docs/selected-contract-report.md",
 ];
-const before = await generatedHashes();
 
-run("bun", ["scripts/sync-docs-openapi.mjs"]);
-run("bun", ["run", "--filter", "@openpost/web", "generate:types"]);
-run("bun", ["scripts/generate-selected-automation-contract.mjs"]);
-const after = await generatedHashes();
+// Checking must not mutate the shared working tree: generators run against the
+// current inputs, their outputs are compared, and every owned file is restored
+// before reporting. Run the owning generate command to update stale outputs.
+const before = await generatedHashes();
+const backups = await backupGeneratedPaths();
+let afterHashes;
+try {
+  run("bun", ["scripts/sync-docs-openapi.mjs"]);
+  run("bun", ["run", "--filter", "@openpost/web", "generate:types"]);
+  run("bun", ["scripts/generate-selected-automation-contract.mjs"]);
+  afterHashes = await generatedHashes();
+} finally {
+  await restoreGeneratedPaths(backups);
+}
+const after = afterHashes;
 const changed = generatedPaths.filter((file) => before.get(file) !== after.get(file));
 if (changed.length > 0) {
-  console.error(`Generated contracts were stale: ${changed.join(", ")}`);
-  run("git", ["diff", "--exit-code", "--", ...changed]);
+  console.error(`Generated contracts are stale: ${changed.join(", ")}`);
+  console.error("Run the owning generate command, review the diff, and commit the result.");
   process.exit(1);
 }
 
@@ -52,6 +62,34 @@ async function generatedHashes() {
     }),
   );
   return new Map(entries);
+}
+
+async function backupGeneratedPaths() {
+  const backups = new Map();
+  await Promise.all(
+    generatedPaths.map(async (file) => {
+      try {
+        const contents = await readFile(path.join(root, file));
+        backups.set(file, contents);
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+    }),
+  );
+  return backups;
+}
+
+async function restoreGeneratedPaths(backups) {
+  await Promise.all(
+    generatedPaths.map(async (file) => {
+      const target = path.join(root, file);
+      if (backups.has(file)) {
+        await writeFile(target, backups.get(file));
+      } else {
+        await rm(target, { force: true });
+      }
+    }),
+  );
 }
 
 function run(command, args) {

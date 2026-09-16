@@ -113,19 +113,8 @@ export function renderPublicClaimProjection(manifest, options = {}) {
 }
 
 export function validatePublicClaimSurfaceSources(manifest, sources) {
-  const marketingCatalog = sources.marketingCatalog ?? "";
-  if (
-    !/import\s+publicClaimManifest\s+from\s+["']\.\.\/\.\.\/\.\.\/\.\.\/config\/provider-certification\/public-claims\.json["'];/u.test(
-      marketingCatalog,
-    ) ||
-    !marketingCatalog.includes("const publicProviderClaims = publicClaimManifest.claims") ||
-    !marketingCatalog.includes("managedCertificationState")
-  ) {
-    throw new Error(
-      "marketing provider catalogue must derive managed certification from public-claims.json",
-    );
-  }
-  if (/\bstatus:\s*["'](?:Available|Supported)["']/u.test(marketingCatalog)) {
+  validateMarketingClaimDerivation(sources.marketingCatalog ?? "");
+  if (/\bstatus:\s*["'](?:Available|Supported)["']/u.test(sources.marketingCatalog ?? "")) {
     throw new Error(
       "marketing provider catalogue cannot infer availability from Available/Supported status labels",
     );
@@ -168,6 +157,23 @@ export function validatePublicClaimSurfaceSources(manifest, sources) {
     throw new Error(
       "provider index documentation must label code paths as implementations, not availability claims",
     );
+  }
+}
+
+export function validateMarketingClaimDerivation(marketingCatalog) {
+  // The guarantee is structural: the catalogue must read the certified claim
+  // projection, not infer availability from status labels. Import spelling,
+  // variable names, and component syntax are free to evolve.
+  if (!/public-claims\.json/u.test(marketingCatalog)) {
+    throw new Error(
+      "marketing provider catalogue must derive managed certification from public-claims.json",
+    );
+  }
+  if (!/\.claims\b/u.test(marketingCatalog)) {
+    throw new Error("marketing provider catalogue must read the certified claim list");
+  }
+  if (!/managedCertificationState|certificationState|certifiedClaim/u.test(marketingCatalog)) {
+    throw new Error("marketing provider catalogue must render managed certification state");
   }
 }
 

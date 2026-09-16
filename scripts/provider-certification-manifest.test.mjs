@@ -322,6 +322,27 @@ function validManifest() {
   };
 }
 
+test("claim derivation survives import and variable renames", () => {
+  const manifest = { schema_version: 1, claims: [] };
+  const sources = {
+    ...validPublicClaimSurfaces(renderPublicClaimProjection(manifest)),
+    marketingCatalog: [
+      'import claims from "@/config/public-claims.json";',
+      "const certified = claims.claims.filter(Boolean);",
+      "render(certificationState(certified));",
+    ].join("\n"),
+  };
+  assert.doesNotThrow(() => validatePublicClaimSurfaceSources(manifest, sources));
+  assert.throws(
+    () =>
+      validatePublicClaimSurfaceSources(manifest, {
+        ...sources,
+        marketingCatalog: "const managedCertificationState = load();",
+      }),
+    /public-claims\.json/,
+  );
+});
+
 function validPublicClaimSurfaces(projection) {
   return {
     marketingCatalog: [
