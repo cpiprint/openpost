@@ -70,16 +70,29 @@ jobs:
           # Look up by branch (authoritative immediately) rather than by
           # commit (search-indexed, can lag), then pin the exact SHA.
           candidate=""
-          for _ in $(seq 1 60); do
-            candidate="$(gh run list \
+          for attempt in $(seq 1 90); do
+            branch_match="$(gh run list \
               --repo "$GITHUB_REPOSITORY" \
               --workflow CI \
               --branch "$GITHUB_REF_NAME" \
               --event push \
               --limit 20 \
               --json databaseId,headSha \
-              --jq '[.[] | select(.headSha == "'"$GITHUB_SHA"'")][0].databaseId // empty' 2>/dev/null || true)"
-            [[ -n "$candidate" ]] && break
+              --jq '[.[] | select(.headSha == "'"$GITHUB_SHA"'")][0].databaseId // empty' || true)"
+            commit_match="$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow CI \
+              --commit "$GITHUB_SHA" \
+              --event push \
+              --limit 20 \
+              --json databaseId,headBranch,headSha \
+              --jq '[.[] | select(.headBranch == "'"$GITHUB_REF_NAME"'" and .headSha == "'"$GITHUB_SHA"'")][0].databaseId // empty' || true)"
+            candidate="${branch_match:-$commit_match}"
+            if [[ -n "$candidate" ]]; then
+              echo "Found CI run $candidate for tag $GITHUB_REF_NAME on SHA $GITHUB_SHA."
+              break
+            fi
+            echo "Waiting for CI on tag $GITHUB_REF_NAME (attempt ${attempt}/90)."
             sleep 30
           done
           [[ -n "$candidate" ]] || {

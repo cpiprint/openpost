@@ -1087,6 +1087,18 @@
       "source_refs": ["apps/web/src/lib/video-editor/workspace-fs/export-storage.ts"]
     },
     {
+      "id": "opfs-capability-probe",
+      "technology": "OPFS",
+      "owner": "OpenPost Video Editor capability gate",
+      "identifier_kind": "exact",
+      "identifier": "openpost-capability-probe",
+      "purpose": "Probes OPFS subdirectory create-and-delete support before the video editor loads; removed immediately after the round-trip succeeds.",
+      "scope": "Application origin and browser profile.",
+      "duration": "Removed right after the capability check; a leftover probe from an interrupted check is removed on the next check, and site-data clearing also removes it.",
+      "necessity": "functional",
+      "source_refs": ["apps/web/src/lib/video-editor/gate/browser-capabilities.ts"]
+    },
+    {
       "id": "opfs-video-streams",
       "technology": "OPFS",
       "owner": "OpenPost Video Editor export pipeline",
