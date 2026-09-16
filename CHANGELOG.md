@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Analytics for Lemmy and PieFed accounts now lists only posts the connected account wrote, instead of other people's posts from the instance feed.
+- Lemmy and PieFed image posts no longer fail at the image upload step: Lemmy uploads go to the instance's image endpoint, and PieFed uploads send the image under the field name PieFed expects.
 - Discover only the connected account's own Lemmy and PieFed posts, and upload their images where each server accepts them.
 - Accept maximum-lifetime API tokens within five minutes of client clock skew instead of rejecting them at creation.
 - Coalesce editor ResizeObserver callbacks into one frame and skip unchanged sizes to stop layout loops.
