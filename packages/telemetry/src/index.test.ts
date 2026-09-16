@@ -598,11 +598,24 @@ describe("installGlobalErrorCapture", () => {
       );
       expect(globalSDK.captureException).not.toHaveBeenCalled();
 
+      // Contentless cross-origin "Script error." carries no stack and only
+      // fuses unrelated routes into one noisy issue, so it is dropped. A
+      // real error object with the same text is still captured.
       runtime.dispatchEvent(
         Object.assign(new Event("error"), { error: null, message: "Script error." }),
       );
+      expect(globalSDK.captureException).not.toHaveBeenCalled();
+
+      const scriptFailure = new Error("Script error.");
+      runtime.dispatchEvent(
+        Object.assign(new Event("error"), {
+          error: scriptFailure,
+          message: scriptFailure.message,
+        }),
+      );
       expect(globalSDK.captureException).toHaveBeenCalledOnce();
-      expect(globalSDK.captureException.mock.calls[0]?.[0].message).toBe("Script error.");
+      const capturedScriptError = globalSDK.captureException.mock.calls[0]?.[0] as Error;
+      expect(capturedScriptError.message).toBe("Script error.");
 
       const failure = new Error("Canvas failed");
       runtime.dispatchEvent(
@@ -732,6 +745,25 @@ describe("installConsoleErrorBridge", () => {
     expect(capture).toHaveBeenCalledWith(failure, {
       error_boundary: "console_error",
     });
+  });
+
+  it("drops benign browser delivery noise but keeps real failures", () => {
+    const capture = vi.fn();
+    const original = vi.fn();
+    const target = { error: original };
+    installConsoleErrorBridge(capture, target);
+
+    target.error("ResizeObserver loop completed with undelivered notifications.");
+    target.error("Script error.");
+    target.error(new Error("ResizeObserver loop completed with undelivered notifications."));
+    expect(capture).not.toHaveBeenCalled();
+    // Console output is always preserved.
+    expect(original).toHaveBeenCalledTimes(3);
+
+    const failure = new Error("Canvas failed");
+    target.error(failure);
+    expect(capture).toHaveBeenCalledOnce();
+    expect(capture).toHaveBeenCalledWith(failure, { error_boundary: "console_error" });
   });
 
   it("never loops when telemetry logging itself fails", () => {

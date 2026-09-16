@@ -115,6 +115,43 @@ const resizeObserverDeliveryWarnings = new Set([
   "ResizeObserver loop completed with undelivered notifications.",
   "ResizeObserver loop limit exceeded",
 ]);
+const contentlessScriptErrors = new Set(["script error", "script error."]);
+
+function warningMessageOf(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (value instanceof Error) return value.message ?? null;
+  if (typeof DOMException !== "undefined" && value instanceof DOMException) {
+    return value.message ?? null;
+  }
+  return null;
+}
+
+/**
+ * Benign browser delivery noise with no actionable stack: ResizeObserver
+ * undelivered-notification warnings, and contentless cross-origin
+ * "Script error." reports. Both lack stacks, so PostHog fuses them into one
+ * noisy issue across unrelated routes. Drop them at every capture entry
+ * point; real failures always carry an error object or a stack.
+ *
+ * ResizeObserver warnings are never real app throws, so they are dropped
+ * whether they arrive as a bare message or attached to an error object.
+ * "Script error." is only dropped when contentless (a bare string with no
+ * error object); a real Error with a stack is still captured.
+ */
+function isResizeObserverWarning(value: unknown): boolean {
+  const message = warningMessageOf(value);
+  return !!message && resizeObserverDeliveryWarnings.has(message.trim());
+}
+
+function isContentlessScriptError(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  return contentlessScriptErrors.has(value.trim().toLowerCase());
+}
+
+function isBenignBrowserWarning(value: unknown): boolean {
+  if (isResizeObserverWarning(value)) return true;
+  return isContentlessScriptError(value);
+}
 const eventPropertyAllowlists: Record<TelemetryEventName, readonly string[]> = {
   "growth opened": ["platform_count"],
   "growth recommendation shown": [
@@ -634,12 +671,14 @@ export function installConsoleErrorBridge(
         value instanceof Error ||
         (typeof DOMException !== "undefined" && value instanceof DOMException),
     );
+    if (originalError && isResizeObserverWarning(originalError)) return;
     const error =
       originalError ??
       new Error(
         [formatConsoleErrorArg(first), ...rest.map(formatConsoleErrorArg)].join(" ").trim() ||
           "Console error",
       );
+    if (!originalError && isBenignBrowserWarning(error.message)) return;
     capturing = true;
     try {
       capture(error, { error_boundary: "console_error" });
@@ -658,7 +697,9 @@ export function installGlobalErrorCapture(): () => void {
   const onError = (event: ErrorEvent) => {
     if (event.defaultPrevented) return;
     // Browsers report deferred ResizeObserver notifications without a thrown application error.
-    if (!event.error && resizeObserverDeliveryWarnings.has(event.message)) return;
+    // Contentless cross-origin "Script error." reports carry no stack either.
+    if (!event.error && isBenignBrowserWarning(event.message)) return;
+    if (event.error && isResizeObserverWarning(event.error)) return;
     const error = event.error ?? new Error(event.message);
     captureClientException(error, {
       error_boundary: "window_error",
@@ -667,6 +708,7 @@ export function installGlobalErrorCapture(): () => void {
   };
   const onUnhandledRejection = (event: PromiseRejectionEvent) => {
     if (event.defaultPrevented) return;
+    if (isResizeObserverWarning(event.reason) || isContentlessScriptError(event.reason)) return;
     captureClientException(event.reason, {
       error_boundary: "unhandled_rejection",
       ...chunkFailureDiagnostics(event.reason),
