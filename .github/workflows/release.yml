@@ -487,16 +487,11 @@ jobs:
   publish-release:
     name: Publish complete deployed release
     runs-on: ubuntu-latest
+    # build-android is intentionally not a need: a skipped need would skip
+    # publication. Server-only releases publish core assets; mobile releases
+    # wait below for the parallel signing job to attach its APK.
     needs:
-      [
-        verify-candidate,
-        prepare-draft,
-        build-binaries,
-        build-cli,
-        build-android,
-        promote-image,
-        deploy-production,
-      ]
+      [verify-candidate, prepare-draft, build-binaries, build-cli, promote-image, deploy-production]
     permissions:
       contents: write
     steps:
@@ -514,6 +509,15 @@ jobs:
           # Server-only releases publish core assets without Android packaging;
           # mobile releases verify the full set including the signed APK.
           asset_scope="$([[ "$MOBILE_CHANGED" == 'true' ]] && echo '--complete' || echo '--core')"
+          if [[ "$MOBILE_CHANGED" == 'true' ]]; then
+            # The signing job runs in parallel; wait for its APK before the
+            # full-set verification instead of coupling the job graph.
+            for _ in $(seq 1 40); do
+              apk_count="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '[.assets[] | select(.name == "openpost-app-android.apk")] | length')"
+              [[ "$apk_count" -ge 1 ]] && break
+              sleep 30
+            done
+          fi
           bun scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
           release_id="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json databaseId --jq '.databaseId')"
           [[ "$release_id" =~ ^[0-9]+$ ]]
