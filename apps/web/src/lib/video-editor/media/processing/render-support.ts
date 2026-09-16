@@ -217,17 +217,24 @@ export async function setupAudioCopy(
 }
 
 export async function getSourceBlobFromOpfs(path: string, mimeType?: string): Promise<Blob> {
-	const root = await navigator.storage.getDirectory();
-	const parts = path.split('/').filter(Boolean);
-	if (parts.length === 0) throw new Error('Invalid OPFS source path');
+	try {
+		const root = await navigator.storage.getDirectory();
+		const parts = path.split('/').filter(Boolean);
+		if (parts.length === 0) throw new Error('Invalid OPFS source path');
 
-	let dir = root;
-	for (let i = 0; i < parts.length - 1; i++) {
-		dir = await dir.getDirectoryHandle(parts[i]!);
+		let dir = root;
+		for (let i = 0; i < parts.length - 1; i++) {
+			dir = await dir.getDirectoryHandle(parts[i]!);
+		}
+		const fileHandle = await dir.getFileHandle(parts[parts.length - 1]!);
+		const file = await fileHandle.getFile();
+		return !mimeType || file.type ? file : new Blob([file], { type: mimeType });
+	} catch (error) {
+		if (error instanceof DOMException && error.name === 'NotAllowedError') {
+			throw new Error('Browser media storage is blocked in this browser context.');
+		}
+		throw error;
 	}
-	const fileHandle = await dir.getFileHandle(parts[parts.length - 1]!);
-	const file = await fileHandle.getFile();
-	return !mimeType || file.type ? file : new Blob([file], { type: mimeType });
 }
 
 /** Scratch `.mp4` files under one OPFS directory, keyed by job id. */
@@ -235,8 +242,15 @@ export class OpfsScratch {
 	constructor(private readonly directory: string) {}
 
 	private async dir(): Promise<FileSystemDirectoryHandle> {
-		const root = await navigator.storage.getDirectory();
-		return root.getDirectoryHandle(this.directory, { create: true });
+		try {
+			const root = await navigator.storage.getDirectory();
+			return root.getDirectoryHandle(this.directory, { create: true });
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'NotAllowedError') {
+				throw new Error(`Browser scratch storage is blocked (${this.directory}).`);
+			}
+			throw error;
+		}
 	}
 
 	async createWritable(jobId: string): Promise<FileSystemWritableFileStream> {

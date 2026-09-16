@@ -15,6 +15,15 @@ function isNotFound(error: unknown): boolean {
 	return error instanceof DOMException && error.name === 'NotFoundError';
 }
 
+function isStorageBlocked(error: unknown): boolean {
+	// OPFS subdirectory access throws NotAllowedError when the user agent
+	// blocks site storage (cookies/site-data off, private window, iframe
+	// permissions-policy, sandboxed Linux Chromium) even though
+	// navigator.storage.getDirectory() itself resolves. A blocked model cache
+	// is "not downloaded", not a failure.
+	return error instanceof DOMException && error.name === 'NotAllowedError';
+}
+
 function hasBrowserManagedStorage(): boolean {
 	// eslint-disable-next-line anti-slop/no-runtime-typeof -- this is the SSR boundary for an optional browser API.
 	return typeof navigator !== 'undefined' && typeof navigator.storage?.getDirectory === 'function';
@@ -29,7 +38,7 @@ async function modelDirectory(): Promise<FileSystemDirectoryHandle | null> {
 		const root = await origin.getDirectoryHandle(MOSS_MODEL_STORE_ROOT);
 		return await root.getDirectoryHandle(MOSS_MODEL_STORE_KEY);
 	} catch (error) {
-		if (isNotFound(error)) return null;
+		if (isNotFound(error) || isStorageBlocked(error)) return null;
 		throw error;
 	}
 }
@@ -97,7 +106,7 @@ export async function clearMossModelStorage(): Promise<boolean> {
 		await root.removeEntry(MOSS_MODEL_STORE_KEY, { recursive: true });
 		return true;
 	} catch (error) {
-		if (isNotFound(error)) return false;
+		if (isNotFound(error) || isStorageBlocked(error)) return false;
 		throw error;
 	}
 }

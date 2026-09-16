@@ -28,7 +28,13 @@ function supportedEnvironment(): TestEnvironment {
 		showOpenFilePicker: () => Promise.resolve(),
 		indexedDB: { open: () => undefined },
 		navigator: {
-			storage: { getDirectory: () => Promise.resolve({}) },
+			storage: {
+				getDirectory: () =>
+					Promise.resolve({
+						getDirectoryHandle: () => Promise.resolve({ removeEntry: () => Promise.resolve() }),
+						removeEntry: () => Promise.resolve()
+					})
+			},
 			userAgent: 'Chrome/140.0.0.0'
 		},
 		VideoEncoder: function VideoEncoder() {},
@@ -75,6 +81,26 @@ describe('video editor browser capabilities', () => {
 		const environment = supportedEnvironment();
 		environment.navigator.storage.getDirectory = () =>
 			Promise.reject(new DOMException('Blocked', 'SecurityError'));
+
+		expect(await detectVideoEditorBrowserSupport(environment)).toEqual({
+			supported: false,
+			issue: 'storage-blocked'
+		});
+	});
+
+	it('reports blocked OPFS subdirectory access even when the root opens', async () => {
+		const environment = supportedEnvironment();
+		environment.navigator.storage.getDirectory = () =>
+			Promise.resolve({
+				getDirectoryHandle: () =>
+					Promise.reject(
+						new DOMException(
+							'The request is not allowed by the user agent or the platform in the current context.',
+							'NotAllowedError'
+						)
+					),
+				removeEntry: () => Promise.resolve()
+			});
 
 		expect(await detectVideoEditorBrowserSupport(environment)).toEqual({
 			supported: false,

@@ -34,6 +34,42 @@ interface BrowserEnvironment {
 	WebAssembly?: { instantiate?: unknown };
 }
 
+interface OpfsDirectoryHandle {
+	getDirectoryHandle: (
+		name: string,
+		options?: { create?: boolean }
+	) => Promise<{ removeEntry: (name: string) => Promise<void> }>;
+	removeEntry: (name: string) => Promise<void>;
+}
+
+/**
+ * Probe an OPFS subdirectory create+delete round-trip. Opening the OPFS root
+ * can succeed while subdirectory access throws NotAllowedError (site storage
+ * blocked, private window, iframe permissions-policy, sandboxed Linux
+ * Chromium), which previously passed the gate and surfaced later as an
+ * uncaught getDirectoryHandle failure on editor load.
+ */
+async function supportsOpfsSubdirectories(
+	getDirectory: () => Promise<object>,
+	storage: NonNullable<BrowserNavigator['storage']>
+): Promise<boolean> {
+	try {
+		const root = (await getDirectory.call(storage)) as Partial<OpfsDirectoryHandle>;
+		if (typeof root.getDirectoryHandle !== 'function') return false;
+		const probe = await root.getDirectoryHandle('openpost-capability-probe', { create: true });
+		if (typeof root.removeEntry === 'function') {
+			try {
+				await root.removeEntry('openpost-capability-probe');
+			} catch {
+				// The probe proved write access; failing to clean it up is harmless.
+			}
+		}
+		return !!probe;
+	} catch {
+		return false;
+	}
+}
+
 function isBraveBrowser(environment: BrowserEnvironment): boolean {
 	return (
 		environment.navigator?.brave !== undefined ||
@@ -105,9 +141,9 @@ export async function detectVideoEditorBrowserSupport(
 	if (typeof getDirectory !== 'function') {
 		return { supported: false, issue: 'storage-blocked' };
 	}
-	try {
-		await getDirectory.call(environment.navigator?.storage);
-	} catch {
+	// SAFETY: getDirectory is function-checked above, so storage exists here.
+	const storage = environment.navigator?.storage as NonNullable<BrowserNavigator['storage']>;
+	if (!(await supportsOpfsSubdirectories(getDirectory, storage))) {
 		return {
 			supported: false,
 			issue: isBraveBrowser(environment) ? 'filesystem-blocked' : 'storage-blocked'

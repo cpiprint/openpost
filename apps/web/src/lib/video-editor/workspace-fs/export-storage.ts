@@ -10,9 +10,18 @@ export function registerCloudExportProject(projectId: string, workspaceId: strin
 export async function exportStorageRoot(projectId?: string): Promise<FileSystemDirectoryHandle> {
 	const workspaceId = projectId ? cloudWorkspaces.get(projectId) : undefined;
 	if (!workspaceId) return requireWorkspaceRoot();
-	const browserRoot = await navigator.storage.getDirectory();
-	const exports = await browserRoot.getDirectoryHandle('openpost-video-exports', { create: true });
-	return exports.getDirectoryHandle(workspaceId, { create: true });
+	try {
+		const browserRoot = await navigator.storage.getDirectory();
+		const exports = await browserRoot.getDirectoryHandle('openpost-video-exports', {
+			create: true
+		});
+		return exports.getDirectoryHandle(workspaceId, { create: true });
+	} catch (error) {
+		if (error instanceof DOMException && error.name === 'NotAllowedError') {
+			throw new Error('Browser export storage is blocked in this browser context.');
+		}
+		throw error;
+	}
 }
 
 export function exportFolderName(projectId: string): string | null {

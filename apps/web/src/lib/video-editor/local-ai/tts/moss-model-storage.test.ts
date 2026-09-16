@@ -56,4 +56,26 @@ describe('MOSS model storage', () => {
 		await expect(clearMossModelStorage()).resolves.toBe(true);
 		expect(removeEntry).toHaveBeenCalledWith(MOSS_MODEL_STORE_KEY, { recursive: true });
 	});
+
+	it('treats blocked OPFS subdirectory access as not downloaded', async () => {
+		const blocked = new DOMException(
+			'The request is not allowed by the user agent or the platform in the current context.',
+			'NotAllowedError'
+		);
+		Object.defineProperty(navigator, 'storage', {
+			configurable: true,
+			value: {
+				getDirectory: vi.fn(async () => ({
+					getDirectoryHandle: vi.fn(async () => {
+						throw blocked;
+					})
+				}))
+			}
+		});
+		await expect(inspectMossModelStorage()).resolves.toMatchObject({
+			supported: true,
+			downloaded: false
+		});
+		await expect(clearMossModelStorage()).resolves.toBe(false);
+	});
 });

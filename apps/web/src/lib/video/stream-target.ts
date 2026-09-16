@@ -49,8 +49,16 @@ export async function createStreamingOutputTarget(
 	if (!getDirectory) {
 		throw new Error('This browser cannot stream video output to local storage.');
 	}
-	const root = await getDirectory.call(navigator.storage);
-	const directory = await root.getDirectoryHandle(TEMP_DIRECTORY, { create: true });
+	let directory;
+	try {
+		const root = await getDirectory.call(navigator.storage);
+		directory = await root.getDirectoryHandle(TEMP_DIRECTORY, { create: true });
+	} catch {
+		// OPFS subdirectory access throws NotAllowedError when site storage is
+		// blocked even though getDirectory() resolves. Surface the same
+		// actionable message as an unsupported browser instead of raw DOM text.
+		throw new Error('This browser cannot stream video output to local storage.');
+	}
 	void cleanStaleStreamingOutputs(directory);
 	const fileName = `render-${Date.now()}-${crypto.randomUUID()}.partial`;
 	const handle = await directory.getFileHandle(fileName, { create: true });
