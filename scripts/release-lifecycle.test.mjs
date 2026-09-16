@@ -59,6 +59,7 @@ for (const localCommits of [0, 2]) {
       );
       for (const file of [
         "release.mjs",
+        "check-changelog.mjs",
         "check-mcp-registry.mjs",
         "mobile-release.mjs",
         "release-command-environment.mjs",
@@ -103,18 +104,18 @@ for (const localCommits of [0, 2]) {
         else if (command.startsWith("gh repo view")) stdout = "WRITE";
         else if (command.startsWith("gh secret list")) stdout = "DEPLOY_WEBHOOK_SECRET";
         else if (command === "bun scripts/next-release-version.mjs v1.0.0") stdout = "v1.0.1";
+        else if (command === "bun scripts/check-changelog.mjs") return spawn(argv);
         else if (command === "bun scripts/prepare-release-changelog.mjs v1.0.1") return spawn(argv);
-        else if (command === "bun run check") {
-          const mobile = JSON.parse(readFileSync("apps/mobile/app.json", "utf8"));
-          if (mobile.expo.android.versionCode !== 3) throw new Error("Candidate was checked before preparation");
-          if (existsSync("changes/fix.md") || !readFileSync("CHANGELOG.md", "utf8").includes("Preserve this release note")) throw new Error("Candidate changelog was not prepared");
-          exitCode = 42;
-        }
+        else if (command.startsWith("bun scripts/mobile-release.mjs")) return spawn(argv);
+        else if (command.startsWith("git diff --name-only")) stdout = "";
         else if (command.startsWith("git add") || command.startsWith("git push")) throw new Error("Unchecked candidate reached Git mutation");
         else if (!(command.startsWith("bash -lc command -v") ||
           command.startsWith("gh auth") || command.startsWith("gh workflow") ||
-          command.startsWith("git fetch") || command.startsWith("bun run check --") ||
-          command === "bun run capture:product-screenshots" || command === "bun run doctor" ||
+          command.startsWith("git fetch") || command.startsWith("git diff") ||
+          command.startsWith("bun run check --") ||
+          command === "bun scripts/check-changelog.mjs" ||
+          command.startsWith("bun scripts/mobile-release.mjs") ||
+          command === "bun run doctor" ||
           command === "bun install --frozen-lockfile" ||
           command === "bun scripts/prepare-release-changelog.mjs v1.0.1")) throw new Error("Unexpected command: " + command);
         return { exitCode, stdout: Buffer.from(stdout), stderr: Buffer.from("") };
@@ -130,11 +131,18 @@ for (const localCommits of [0, 2]) {
         .trim()
         .split("\n")
         .map((line) => JSON.parse(line));
-      assert.ok(commands.some((argv) => argv.join(" ") === "bun run check"));
+      const indexOf = (prefix) => commands.findIndex((argv) => argv.join(" ").startsWith(prefix));
+      // Cheap validation runs before any file is touched.
+      assert.ok(indexOf("bun scripts/check-changelog.mjs") >= 0);
+      assert.ok(indexOf("bun run check -- release-version") >= 0);
+      assert.ok(indexOf("bun scripts/mobile-release.mjs check-release") >= 0);
+      const preparedAt = indexOf("bun scripts/prepare-release-changelog.mjs v1.0.1");
+      assert.ok(preparedAt > indexOf("bun scripts/check-changelog.mjs"));
+      // Preparation stages exactly its owned paths, then stops at the push.
+      const added = commands.find((argv) => argv[0] === "git" && argv[1] === "add");
+      assert.deepEqual(added, ["git", "add", "CHANGELOG.md", "changes"]);
       assert.ok(
-        !commands.some(
-          ([tool, action]) => tool === "git" && ["add", "commit", "push"].includes(action),
-        ),
+        !commands.some(([tool, action]) => tool === "git" && ["commit", "push"].includes(action)),
       );
       assert.equal(readFileSync(path.join(directory, "changes/fix.md"), "utf8"), fragment);
       assert.equal(readFileSync(path.join(directory, "CHANGELOG.md"), "utf8"), originalChangelog);

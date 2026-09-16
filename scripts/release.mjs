@@ -1,12 +1,11 @@
 #!/usr/bin/env bun
 
 import { createHash } from "node:crypto";
-import { mkdir, readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { checkMCPRegistryOwnership } from "./check-mcp-registry.mjs";
 import { changelogFragmentEntries } from "./changelog-fragments.mjs";
-import { prepareMobileReleaseFiles } from "./mobile-release.mjs";
 import { releaseCommandEnvironment } from "./release-command-environment.mjs";
 import { requireConventionalCommitMessage, selectWorkflowRun } from "./release-lifecycle.mjs";
 import {
@@ -21,6 +20,13 @@ import {
 const root = path.resolve(import.meta.dir, "..");
 const command = process.argv[2] ?? "plan";
 const args = process.argv.slice(3);
+
+const mobileReleasePaths = [
+  "apps/mobile",
+  "packages/api-contract",
+  "packages/query-catalog",
+  "apps/web/openapi.json",
+];
 
 try {
   switch (command) {
@@ -124,14 +130,47 @@ async function preflight() {
   run(["bun", "run", "doctor"]);
   requireCommand("gh");
   verifyGitHubReleaseAccess();
-  await verifyProductionReady();
-  console.log("release preflight: worktree, GitHub, workflows, secrets, and production are ready");
+  await warnUnlessProductionReady("preflight");
+  console.log("release preflight: worktree, GitHub, workflows, and secrets are ready");
 }
 
 function checkReleaseContracts() {
   run(["bun", "run", "check", "--", "release-version"]);
   run(["bun", "run", "check", "--", "changelog"]);
   run(["bun", "run", "check", "--", "provider-certification"]);
+}
+
+async function checkReleaseMobileIdentity(latestTag) {
+  const previousPath =
+    git(["ls-tree", "--name-only", latestTag, "apps/mobile/app.json"]).trim().length > 0
+      ? "apps/mobile/app.json"
+      : "mobile/app.json";
+  const previousConfig = git(["show", `${latestTag}:${previousPath}`]);
+  const previousFile = path.join(
+    root,
+    ".devenv",
+    "state",
+    `previous-release-app-${process.pid}.json`,
+  );
+  await Bun.write(previousFile, previousConfig);
+  try {
+    const changed = git(["diff", "--name-only", latestTag, "--", ...mobileReleasePaths]).trim();
+    run([
+      "bun",
+      "scripts/mobile-release.mjs",
+      "check-release",
+      "--config",
+      "apps/mobile/app.json",
+      "--package",
+      "apps/mobile/package.json",
+      "--previous-config",
+      previousFile,
+      "--changed",
+      changed ? "true" : "false",
+    ]);
+  } finally {
+    await rm(previousFile, { force: true });
+  }
 }
 
 async function check() {
@@ -217,7 +256,7 @@ async function prepare(commitMessage) {
   if (isDirty()) requireConventionalCommitMessage(commitMessage);
 
   verifyGitHubReleaseAccess();
-  await verifyProductionReady();
+  await warnUnlessProductionReady("prepare");
 
   run(["git", "fetch", "origin", "main", "--tags"]);
   const divergence = git(["rev-list", "--left-right", "--count", "HEAD...origin/main"]);
@@ -246,69 +285,49 @@ async function prepare(commitMessage) {
     tag = runCapture(["bun", "scripts/next-release-version.mjs", latestTag]).trim();
   }
 
-  // Ship product images from this revision, including the landing page detail crops.
-  run(["bun", "run", "capture:product-screenshots"]);
+  // Cheap validation first: input syntax and contracts fail here, before any
+  // file is touched. Expensive verification belongs to tag CI, which proves
+  // the selected candidate. Local focused checks belong to implementation
+  // work, not to release preparation.
+  run(["bun", "scripts/check-changelog.mjs"]);
+  checkReleaseContracts();
+  await checkReleaseMobileIdentity(latestTag);
 
+  // Preparation owns exactly two paths: the changelog and its fragments.
+  // Product screenshots refresh deliberately with public imagery changes, not
+  // on every release. Android keeps its own cadence: preparation never bumps
+  // mobile identity, it only verifies the committed identity is release-valid.
   const changelogPath = path.join(root, "CHANGELOG.md");
-  const mobileConfigPath = path.join(root, "apps/mobile", "app.json");
-  const mobilePackagePath = path.join(root, "apps/mobile", "package.json");
   const originalFragments = await Promise.all(
     changelogFragmentEntries(path.join(root, "changes")).map(async (entry) => {
       const file = path.join(root, "changes", entry);
       return { file, content: await readFile(file) };
     }),
   );
-  const [originalChangelog, originalMobileConfig, originalMobilePackage] = await Promise.all([
-    readFile(changelogPath),
-    readFile(mobileConfigPath),
-    readFile(mobilePackagePath),
-  ]);
+  const originalChangelog = await readFile(changelogPath);
   try {
-    const mobileIdentity = await prepareMobileReleaseFiles({
-      configPath: mobileConfigPath,
-      packagePath: mobilePackagePath,
-      previousConfig: JSON.parse(
-        git([
-          "show",
-          `${latestTag}:${
-            git(["ls-tree", "--name-only", latestTag, "apps/mobile/app.json"]).trim()
-              ? "apps/mobile/app.json"
-              : "mobile/app.json"
-          }`,
-        ]),
-      ),
-    });
-    console.log(
-      `release prepare: mobile ${mobileIdentity.version_name} (${mobileIdentity.version_code})`,
-    );
     run(["bun", "scripts/prepare-release-changelog.mjs", tag]);
-    checkReleaseContracts();
-    await check();
-    run(["bun", "run", "test", "--", "frontend"]);
-    run(["bun", "run", "test", "--", "e2e"]);
-    run(["bun", "run", "test", "--", "e2e-app"]);
+    run(["git", "add", "CHANGELOG.md", "changes"]);
+    if (git(["diff", "--cached", "--name-only"]).trim()) {
+      run(["git", "commit", "-m", commitMessage || `docs: prepare ${tag} changelog`]);
+    } else {
+      console.log(`release prepare: ${tag} changelog is already prepared; reusing HEAD`);
+    }
   } catch (error) {
     await Promise.all([
       Bun.write(changelogPath, originalChangelog),
-      Bun.write(mobileConfigPath, originalMobileConfig),
-      Bun.write(mobilePackagePath, originalMobilePackage),
       ...originalFragments.map(async ({ file, content }) => {
         if (!(await exists(file))) await Bun.write(file, content);
       }),
     ]);
     throw error;
   }
-  run(["git", "add", "--all"]);
-  if (git(["diff", "--cached", "--name-only"]).trim()) {
-    run(["git", "commit", "-m", commitMessage || `docs: prepare ${tag} changelog`]);
-  } else {
-    console.log(`release prepare: ${tag} changelog is already prepared; reusing HEAD`);
-  }
+  // The candidate is the pushed SHA. Later main commits cannot enter it; a
+  // rejected push means origin advanced and preparation stops here.
   run(["git", "push", "origin", "main"]);
 
   const revision = git(["rev-parse", "HEAD"]);
-  await waitForCI(revision);
-  console.log(`release prepare: ${tag} is a tested candidate at ${revision}`);
+  console.log(`release prepare: ${tag} candidate selected at ${revision}; tag CI proves it`);
   return tag;
 }
 
@@ -328,7 +347,8 @@ async function promote(requestedTag) {
   if (!tag) throw new Error("pass the prepared version tag to release -- promote");
 
   runCapture(["bun", "scripts/release-notes.mjs", tag]);
-  await waitForCI(revision);
+  // Tag CI proves the candidate with the final version embedded; main CI is
+  // development feedback, not a serial predecessor. Do not wait for it here.
 
   const remoteTag = runOptional([
     "git",
@@ -414,12 +434,6 @@ async function status() {
   }
 }
 
-async function waitForCI(revision) {
-  const workflowRun = await waitForWorkflow("CI", "main", revision);
-  run(["gh", "run", "watch", workflowRun.id, "--exit-status"]);
-  return workflowRun;
-}
-
 async function waitForWorkflow(workflow, branch, revision) {
   for (let attempt = 0; attempt < 120; attempt += 1) {
     const result = runOptional([
@@ -463,17 +477,22 @@ async function verifyProduction(version, revision) {
   throw new Error(`production did not report ${version} at revision ${revision}`);
 }
 
-async function verifyProductionReady() {
-  let response;
+async function warnUnlessProductionReady(stage) {
+  // A broken production must never block shipping its fix. Readiness gates
+  // the deployment result, not the decision to release.
   try {
-    response = await fetch("https://app.openpo.st/api/v1/ready", {
+    const response = await fetch("https://app.openpo.st/api/v1/ready", {
       signal: AbortSignal.timeout(10_000),
     });
+    if (response.ok) return;
+    console.warn(
+      `release ${stage}: production readiness returned HTTP ${response.status}; continuing`,
+    );
   } catch (error) {
-    throw new Error(`production readiness preflight failed: ${error.message}`);
+    console.warn(
+      `release ${stage}: production readiness unreachable (${error.message}); continuing`,
+    );
   }
-  if (!response.ok)
-    throw new Error(`production readiness preflight returned HTTP ${response.status}`);
 }
 
 function verifyGitHubReleaseAccess() {
