@@ -261,13 +261,24 @@
 	);
 	$effect(() => {
 		if (!host) return;
+		let graphFrame = 0;
 		const observer = new ResizeObserver(([entry]) => {
-			const nextWidth = Math.max(320, Math.round(entry?.contentRect.width ?? 640));
-			width = nextWidth;
-			viewport = { ...viewport, width: nextWidth };
+			if (graphFrame) return;
+			// Rounding can oscillate at clamp boundaries (319.6 <-> 320): only
+			// write when the width actually changed, coalesced into one frame.
+			graphFrame = requestAnimationFrame(() => {
+				graphFrame = 0;
+				const nextWidth = Math.max(320, Math.round(entry?.contentRect.width ?? 640));
+				if (nextWidth === width) return;
+				width = nextWidth;
+				viewport = { ...viewport, width: nextWidth };
+			});
 		});
 		observer.observe(host);
-		return () => observer.disconnect();
+		return () => {
+			cancelAnimationFrame(graphFrame);
+			observer.disconnect();
+		};
 	});
 
 	$effect(() => {

@@ -210,6 +210,7 @@
 		let disposed = false;
 		let mountedAdapter: OpenPostFabricAdapter | null = null;
 		let resize: ResizeObserver | null = null;
+		let resizeFrame = 0;
 		void (async () => {
 			await tick();
 			const viewportElement = viewport;
@@ -268,20 +269,27 @@
 				let viewportWidth = viewportElement.clientWidth;
 				let viewportHeight = viewportElement.clientHeight;
 				resize = new ResizeObserver(() => {
-					if (textEditing) return;
-					const nextWidth = viewportElement.clientWidth;
-					const nextHeight = viewportElement.clientHeight;
-					editor.setViewportSize(nextWidth, nextHeight);
-					if (
-						Math.abs(nextWidth - viewportWidth) > 32 ||
-						Math.abs(nextHeight - viewportHeight) > 32
-					) {
-						viewportWidth = nextWidth;
-						viewportHeight = nextHeight;
-						editor.fitZoom(nextWidth, nextHeight);
-						editor.panX = 0;
-						editor.panY = 0;
-					}
+					if (textEditing || resizeFrame) return;
+					// Coalesce bursts into one frame and skip unchanged sizes: writing
+					// viewport state re-renders the canvas, which would otherwise
+					// re-notify the observer in the same frame (ResizeObserver loop).
+					resizeFrame = requestAnimationFrame(() => {
+						resizeFrame = 0;
+						const nextWidth = viewportElement.clientWidth;
+						const nextHeight = viewportElement.clientHeight;
+						if (nextWidth === viewportWidth && nextHeight === viewportHeight) return;
+						editor.setViewportSize(nextWidth, nextHeight);
+						if (
+							Math.abs(nextWidth - viewportWidth) > 32 ||
+							Math.abs(nextHeight - viewportHeight) > 32
+						) {
+							viewportWidth = nextWidth;
+							viewportHeight = nextHeight;
+							editor.fitZoom(nextWidth, nextHeight);
+							editor.panX = 0;
+							editor.panY = 0;
+						}
+					});
 				});
 				resize.observe(viewportElement);
 				finishMetric();
@@ -293,6 +301,8 @@
 		})();
 		return () => {
 			disposed = true;
+			if (resizeFrame) cancelAnimationFrame(resizeFrame);
+			resizeFrame = 0;
 			resize?.disconnect();
 			mountedAdapter?.dispose();
 			if (adapter === mountedAdapter) adapter = null;

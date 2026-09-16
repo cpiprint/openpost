@@ -42,13 +42,22 @@
 	$effect(() => {
 		if (!root) return;
 		const measure = () => {
-			width = Math.max(1, Math.round(root?.clientWidth ?? 1));
-			height = Math.max(1, Math.round(root?.clientHeight ?? 1));
+			const nextWidth = Math.max(1, Math.round(root?.clientWidth ?? 1));
+			const nextHeight = Math.max(1, Math.round(root?.clientHeight ?? 1));
+			if (nextWidth !== width) width = nextWidth;
+			if (nextHeight !== height) height = nextHeight;
 		};
 		measure();
-		const observer = new ResizeObserver(measure);
+		let frame = 0;
+		const observer = new ResizeObserver(() => {
+			cancelAnimationFrame(frame);
+			frame = requestAnimationFrame(measure);
+		});
 		observer.observe(root);
-		return () => observer.disconnect();
+		return () => {
+			cancelAnimationFrame(frame);
+			observer.disconnect();
+		};
 	});
 
 	$effect(() => {

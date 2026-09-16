@@ -63,11 +63,20 @@
 
 	$effect(() => {
 		if (!root) return;
+		let panelFrame = 0;
 		const observer = new ResizeObserver(([entry]) => {
-			width = Math.max(240, Math.round(entry?.contentRect.width ?? 440));
+			if (panelFrame) return;
+			panelFrame = requestAnimationFrame(() => {
+				panelFrame = 0;
+				const nextWidth = Math.max(240, Math.round(entry?.contentRect.width ?? 440));
+				if (nextWidth !== width) width = nextWidth;
+			});
 		});
 		observer.observe(root);
-		return () => observer.disconnect();
+		return () => {
+			cancelAnimationFrame(panelFrame);
+			observer.disconnect();
+		};
 	});
 
 	$effect(() => {

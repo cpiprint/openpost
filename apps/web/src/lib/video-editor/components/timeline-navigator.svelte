@@ -59,6 +59,7 @@
 	let dragPreview = $state<DragPreview | null>(null);
 	let animationFrame: number | null = null;
 	let resizeObserver: ResizeObserver | null = null;
+	let navigatorFrame: number | null = null;
 	let pointerMediaQuery: MediaQueryList | null = null;
 	let pointerMediaListener: (() => void) | null = null;
 	let coarsePointer = $state(false);
@@ -252,7 +253,14 @@
 		if (!trackNode) return;
 		trackWidth = trackNode.clientWidth;
 		resizeObserver = new ResizeObserver(([entry]) => {
-			if (entry) trackWidth = entry.contentRect.width;
+			if (!entry || navigatorFrame !== null) return;
+			// trackWidth drives thumb/zoom math, which can toggle scrollbars and
+			// change the observed width again: round, coalesce, and skip equals.
+			navigatorFrame = requestAnimationFrame(() => {
+				navigatorFrame = null;
+				const nextWidth = Math.round(entry.contentRect.width);
+				if (nextWidth !== Math.round(trackWidth)) trackWidth = nextWidth;
+			});
 		});
 		resizeObserver.observe(trackNode);
 		pointerMediaQuery = window.matchMedia('(pointer: coarse)');
@@ -263,6 +271,7 @@
 
 	onDestroy(() => {
 		resizeObserver?.disconnect();
+		if (navigatorFrame !== null) cancelAnimationFrame(navigatorFrame);
 		if (pointerMediaListener)
 			pointerMediaQuery?.removeEventListener('change', pointerMediaListener);
 		if (dragSnapshot) stopDrag(true);

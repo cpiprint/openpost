@@ -147,11 +147,31 @@
 						Boolean(canvas)
 					);
 		if (canvases.length === 0 || !globalThis.ResizeObserver) return;
-		const observer = new globalThis.ResizeObserver(() => {
-			canvasRevision++;
+		// The observer watches the canvases it re-renders: only bump the revision
+		// when a canvas size actually changed, coalesced into one frame, or the
+		// redraw loop re-notifies itself (ResizeObserver loop).
+		const lastSizes = new Map<Element, string>();
+		let scopeFrame = 0;
+		const observer = new globalThis.ResizeObserver((entries) => {
+			if (scopeFrame) return;
+			scopeFrame = requestAnimationFrame(() => {
+				scopeFrame = 0;
+				let changed = false;
+				for (const entry of entries) {
+					const size = `${Math.round(entry.contentRect.width)}x${Math.round(entry.contentRect.height)}`;
+					if (lastSizes.get(entry.target) !== size) {
+						lastSizes.set(entry.target, size);
+						changed = true;
+					}
+				}
+				if (changed) canvasRevision++;
+			});
 		});
 		for (const canvas of canvases) observer.observe(canvas);
-		return () => observer.disconnect();
+		return () => {
+			cancelAnimationFrame(scopeFrame);
+			observer.disconnect();
+		};
 	});
 
 	$effect(() => {
