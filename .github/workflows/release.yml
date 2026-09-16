@@ -66,20 +66,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          # The tag-triggered CI run rebuilds only the release artifacts. Wait
-          # for it, then require success before promotion.
+          # Tag CI proves the candidate with the final version embedded.
+          # Look up by branch (authoritative immediately) rather than by
+          # commit (search-indexed, can lag), then pin the exact SHA.
           candidate=""
-          for _ in $(seq 1 30); do
+          for _ in $(seq 1 60); do
             candidate="$(gh run list \
               --repo "$GITHUB_REPOSITORY" \
               --workflow CI \
-              --commit "$GITHUB_SHA" \
+              --branch "$GITHUB_REF_NAME" \
               --event push \
               --limit 20 \
-              --json databaseId,headBranch \
-              --jq '[.[] | select(.headBranch == "'"$GITHUB_REF_NAME"'")][0].databaseId // empty' 2>/dev/null || true)"
+              --json databaseId,headSha \
+              --jq '[.[] | select(.headSha == "'"$GITHUB_SHA"'")][0].databaseId // empty' 2>/dev/null || true)"
             [[ -n "$candidate" ]] && break
-            sleep 20
+            sleep 30
           done
           [[ -n "$candidate" ]] || {
             echo "No CI run exists for tag $GITHUB_REF_NAME on SHA $GITHUB_SHA." >&2
@@ -518,7 +519,7 @@ jobs:
             --release-json release.json \
             --tag "$GITHUB_REF_NAME" \
             --notes-file release-notes.md \
-            $asset_scope
+            "$asset_scope"
           gh release edit "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --draft=false \
@@ -529,7 +530,7 @@ jobs:
             --release-json release.json \
             --tag "$GITHUB_REF_NAME" \
             --notes-file release-notes.md \
-            $asset_scope --published
+            "$asset_scope" --published
 
   announce-discord:
     name: Announce release in Discord
