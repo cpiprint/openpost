@@ -1,6 +1,5 @@
 import { expect, it, vi } from 'vitest';
 import { deleteHandle, getHandle, saveHandle } from './handles-db';
-
 it('reopens a closed handle database before writing without losing existing handles', async () => {
 	const id = crypto.randomUUID();
 	const handle = await navigator.storage.getDirectory();
@@ -26,6 +25,29 @@ it('reopens a closed handle database before writing without losing existing hand
 		expect(closing).toHaveBeenCalled();
 	} finally {
 		closing.mockRestore();
+		await deleteHandle('project-folder', id);
+	}
+});
+
+it('recovers a stale-transaction read without reporting an error', async () => {
+	const id = crypto.randomUUID();
+	const handle = await navigator.storage.getDirectory();
+	await saveHandle({ kind: 'project-folder', id, handle, name: 'Before', pickedAt: 1 });
+	// Simulate a versionchange-closed connection: the next transaction throws
+	// InvalidStateError, so the read must reopen once and succeed quietly.
+	const stale = vi
+		.spyOn(IDBDatabase.prototype, 'transaction')
+		.mockImplementationOnce(function (this: IDBDatabase) {
+			throw new DOMException('Stale connection', 'InvalidStateError');
+		});
+	const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+	try {
+		expect((await getHandle('project-folder', id))?.name).toBe('Before');
+		expect(stale).toHaveBeenCalled();
+		expect(consoleError).not.toHaveBeenCalled();
+	} finally {
+		stale.mockRestore();
+		consoleError.mockRestore();
 		await deleteHandle('project-folder', id);
 	}
 });

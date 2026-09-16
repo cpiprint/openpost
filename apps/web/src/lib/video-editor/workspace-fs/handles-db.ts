@@ -78,18 +78,57 @@ function getHandlesDB(): Promise<IDBDatabase> {
 	return dbPromise;
 }
 
-async function handleStore(mode: IDBTransactionMode): Promise<IDBObjectStore> {
-	const pending = getHandlesDB();
-	const db = await pending;
+async function withHandlesStore<T>(
+	mode: IDBTransactionMode,
+	run: (store: IDBObjectStore) => IDBRequest<T>
+): Promise<T> {
+	// The transaction and its first request must be created in the same tick:
+	// an IDBTransaction auto-commits when the microtask yields with no pending
+	// requests, so returning a bare IDBObjectStore across awaits lets a later
+	// request land on a finished transaction (InvalidStateError). On Android
+	// this races with tab switches and versionchange closes.
+	const attempt = async (): Promise<T> => {
+		const pending = getHandlesDB();
+		const db = await pending;
+		let request: IDBRequest<T>;
+		try {
+			request = run(db.transaction(HANDLES_STORE, mode).objectStore(HANDLES_STORE));
+		} catch (error) {
+			if (!(error instanceof DOMException && error.name === 'InvalidStateError')) throw error;
+			if (dbPromise === pending) dbPromise = null;
+			try {
+				db.close();
+			} catch {
+				// The connection is already closed.
+			}
+			throw error;
+		}
+		return requestAsPromise(request);
+	};
 	try {
-		return db.transaction(HANDLES_STORE, mode).objectStore(HANDLES_STORE);
+		return await attempt();
 	} catch (error) {
 		if (!(error instanceof DOMException && error.name === 'InvalidStateError')) throw error;
-		// The connection closed before a transaction began, so no write needs replaying.
-		if (dbPromise === pending) dbPromise = null;
-		db.close();
-		return (await getHandlesDB()).transaction(HANDLES_STORE, mode).objectStore(HANDLES_STORE);
+		// Stale connection or finished transaction: reopen once and retry. A
+		// second failure means storage itself is broken and must surface.
+		if (dbPromise) {
+			const stale = await dbPromise.catch(() => null);
+			try {
+				stale?.close();
+			} catch {
+				// The connection is already closed.
+			}
+			dbPromise = null;
+		}
+		return attempt();
 	}
+}
+
+function isStaleStorageError(error: unknown): boolean {
+	return (
+		error instanceof DOMException &&
+		(error.name === 'InvalidStateError' || error.name === 'AbortError')
+	);
 }
 
 function requestAsPromise<T>(request: IDBRequest<T>): Promise<T> {
@@ -105,35 +144,43 @@ function compoundKey(kind: HandleKind, id: string): string {
 
 export async function getHandle(kind: HandleKind, id: string): Promise<HandleRecord | null> {
 	try {
-		const store = await handleStore('readonly');
-		const record = await requestAsPromise(store.get(compoundKey(kind, id)));
+		const record = (await withHandlesStore('readonly', (store) =>
+			store.get(compoundKey(kind, id))
+		)) as HandleRecord | undefined;
 		// SAFETY: the store only persists HandleRecord values.
 		// SAFETY: the stored value satisfies HandleRecord | undefined here.
-		return (record as HandleRecord | undefined) ?? null;
+		return record ?? null;
 	} catch (error) {
+		if (isStaleStorageError(error)) {
+			// A closed connection or a finished transaction after a tab switch
+			// or versionchange. Warn (console.warn is not bridged to error
+			// tracking) instead of logger.error so a retried-later read does
+			// not file PostHog noise.
+			logger.warn(`getHandle(${kind}, ${id}) hit stale storage state`, error);
+			return null;
+		}
 		logger.error(`getHandle(${kind}, ${id}) failed`, error);
 		return null;
 	}
 }
 
 export async function saveHandle(record: Omit<HandleRecord, 'key'>): Promise<void> {
-	const store = await handleStore('readwrite');
 	const full: HandleRecord = {
 		...record,
 		key: compoundKey(record.kind, record.id)
 	};
-	await requestAsPromise(store.put(full));
+	await withHandlesStore('readwrite', (store) => store.put(full));
 }
 
 export async function deleteHandle(kind: HandleKind, id: string): Promise<void> {
-	const store = await handleStore('readwrite');
-	await requestAsPromise(store.delete(compoundKey(kind, id)));
+	await withHandlesStore('readwrite', (store) => store.delete(compoundKey(kind, id)));
 }
 
 async function listHandlesByKind(kind: HandleKind): Promise<HandleRecord[]> {
-	const index = (await handleStore('readonly')).index('kind');
 	// SAFETY: the kind index only contains HandleRecord entries.
-	return requestAsPromise(index.getAll(kind)) as Promise<HandleRecord[]>;
+	return withHandlesStore('readonly', (store) => store.index('kind').getAll(kind)) as Promise<
+		HandleRecord[]
+	>;
 }
 
 /* ───────────────────────────── Workspace shortcut ─────────────────────── */
