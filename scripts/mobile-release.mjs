@@ -60,6 +60,21 @@ export function nextMobileIdentity(current, previous) {
   };
 }
 
+export function requireReleaseMobileIdentity(current, previous, mobileChanged) {
+  if (mobileChanged) {
+    requireMonotonicMobileIdentity(current, previous);
+    return;
+  }
+  if (
+    current.version_name !== previous.version_name ||
+    current.version_code !== previous.version_code
+  ) {
+    throw new Error(
+      `mobile identity ${current.version_name} (${current.version_code}) must stay at the released identity ${previous.version_name} (${previous.version_code}) when no mobile surface changed; ship mobile changes explicitly instead of bumping every core release`,
+    );
+  }
+}
+
 export async function prepareMobileReleaseFiles({ configPath, packagePath, previousConfig }) {
   const [config, packageMetadata] = await Promise.all([
     readJSON(configPath),
@@ -129,7 +144,24 @@ async function main() {
     return;
   }
 
-  throw new Error("usage: mobile-release.mjs <check|check-current> --config FILE [options]");
+  if (command === "check-release") {
+    if (!options["previous-config"]) throw new Error("--previous-config is required");
+    if (options.changed === undefined) throw new Error("--changed true|false is required");
+    const previous = readMobileIdentity(await readJSON(options["previous-config"]));
+    const changed = options.changed === "true";
+    if (options.changed !== "true" && options.changed !== "false") {
+      throw new Error('--changed must be "true" or "false"');
+    }
+    requireReleaseMobileIdentity(identity, previous, changed);
+    process.stdout.write(
+      `${identity.version_name} (${identity.version_code})${changed ? "" : " unchanged"}\n`,
+    );
+    return;
+  }
+
+  throw new Error(
+    "usage: mobile-release.mjs <check|check-current|check-release> --config FILE [options]",
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

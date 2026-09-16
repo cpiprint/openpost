@@ -7,7 +7,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
-  renameSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -63,47 +62,23 @@ test("only the image CI job can write packages", () => {
   );
 });
 
-for (const legacyLayout of [false, true]) {
-  test(`a second tag compares against the existing release tag (legacy layout: ${legacyLayout})`, () => {
-    const directory = mkdtempSync(path.join(tmpdir(), "openpost-release-tags-"));
-    try {
-      mkdirSync(path.join(directory, "apps/mobile"), { recursive: true });
-      mkdirSync(path.join(directory, "scripts"));
-      copyFileSync(
-        "scripts/mobile-release.mjs",
-        path.join(directory, "scripts", "mobile-release.mjs"),
-      );
-      const git = (...args) => {
-        const result = spawnSync("git", args, { cwd: directory, encoding: "utf8" });
-        assert.equal(result.status, 0, result.stderr);
-        return result.stdout.trim();
-      };
-      git("init");
-      git("config", "user.email", "release-test@openpost.local");
-      git("config", "user.name", "OpenPost Release Test");
-      writeMobileIdentity(directory, "0.2.0", 2);
-      git("add", ".");
-      git("commit", "-m", "old release");
-      git("tag", "v4.14.0");
-      writeMobileIdentity(directory, "0.2.1", 3);
-      git("add", ".");
-      git("commit", "-m", "current release");
-      if (legacyLayout) {
-        git("mv", "apps/mobile", "mobile");
-        git("commit", "--amend", "--no-edit");
-      }
-      git("tag", "v4.15.0");
-      git("tag", "v4.15.1");
-      assert.deepEqual(readdirSync(path.join(directory, ".git", "refs", "tags")).sort(), [
-        "v4.14.0",
-        "v4.15.0",
-        "v4.15.1",
-      ]);
-
-      if (legacyLayout) {
-        mkdirSync(path.join(directory, "apps"), { recursive: true });
-        renameSync(path.join(directory, "mobile"), path.join(directory, "apps/mobile"));
-      }
+test("Android keeps its own cadence across core releases", () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "openpost-release-tags-"));
+  try {
+    mkdirSync(path.join(directory, "apps/mobile"), { recursive: true });
+    mkdirSync(path.join(directory, "scripts"));
+    copyFileSync(
+      "scripts/mobile-release.mjs",
+      path.join(directory, "scripts", "mobile-release.mjs"),
+    );
+    const git = (...args) => {
+      const result = spawnSync("git", args, { cwd: directory, encoding: "utf8" });
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout.trim();
+    };
+    const runIdentityStep = (ref, sha) => {
+      const output = path.join(directory, `step-output-${ref}.txt`);
+      writeFileSync(output, "");
       const result = spawnSync(
         "bash",
         [
@@ -113,25 +88,77 @@ for (const legacyLayout of [false, true]) {
           "-o",
           "pipefail",
           "-c",
-          workflowStepScript(release, "verify-candidate", "Require a new Android release identity"),
+          workflowStepScript(
+            release,
+            "verify-candidate",
+            "Require a release-valid Android identity",
+          ),
         ],
         {
           cwd: directory,
           encoding: "utf8",
-          env: { ...process.env, GITHUB_REF_NAME: "v4.15.1" },
+          env: {
+            ...process.env,
+            GITHUB_REF_NAME: ref,
+            GITHUB_SHA: sha,
+            GITHUB_OUTPUT: output,
+          },
         },
       );
-      assert.notEqual(result.status, 0);
-      assert.equal(
-        JSON.parse(readFileSync(path.join(directory, "previous-release-app.json"), "utf8")).expo
-          .android.versionCode,
-        3,
-      );
-    } finally {
-      rmSync(directory, { recursive: true, force: true });
-    }
-  });
-}
+      const changed = readFileSync(output, "utf8")
+        .split("\n")
+        .find((line) => line.startsWith("changed="))
+        ?.slice("changed=".length);
+      return { status: result.status, stderr: result.stderr, changed };
+    };
+    git("init");
+    git("config", "user.email", "release-test@openpost.local");
+    git("config", "user.name", "OpenPost Release Test");
+    writeMobileIdentity(directory, "0.2.0", 2);
+    git("add", ".");
+    git("commit", "-m", "old release");
+    git("tag", "v4.14.0");
+    writeMobileIdentity(directory, "0.2.1", 3);
+    git("add", ".");
+    git("commit", "-m", "mobile release");
+    git("tag", "v4.15.0");
+
+    // A server-only release keeps the released identity and skips packaging.
+    writeFileSync(path.join(directory, "notes.txt"), "server fix\n");
+    git("add", ".");
+    git("commit", "-m", "fix: server only");
+    git("tag", "v4.15.1");
+    const serverOnly = runIdentityStep("v4.15.1", git("rev-parse", "HEAD"));
+    assert.equal(serverOnly.status, 0, serverOnly.stderr);
+    assert.equal(serverOnly.changed, "false");
+    assert.equal(
+      JSON.parse(readFileSync(path.join(directory, "previous-release-app.json"), "utf8")).expo
+        .android.versionCode,
+      3,
+    );
+
+    // A mobile change without an identity bump fails closed.
+    mkdirSync(path.join(directory, "apps/mobile/src"), { recursive: true });
+    writeFileSync(path.join(directory, "apps/mobile/src/unbumped.ts"), "export {}\n");
+    git("add", ".");
+    git("commit", "-m", "fix(mobile): unbumped change");
+    git("tag", "v4.15.2");
+    const unbumped = runIdentityStep("v4.15.2", git("rev-parse", "HEAD"));
+    assert.notEqual(unbumped.status, 0);
+    assert.equal(unbumped.changed, "true");
+
+    // A mobile change with a bumped identity releases again.
+    writeMobileIdentity(directory, "0.2.2", 4);
+    git("add", ".");
+    git("commit", "-m", "feat(mobile): bumped change");
+    git("tag", "v4.15.3");
+    const bumped = runIdentityStep("v4.15.3", git("rev-parse", "HEAD"));
+    assert.equal(bumped.status, 0, bumped.stderr);
+    assert.equal(bumped.changed, "true");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test("external workflow actions are pinned to immutable commits", () => {
   const actionLine = /^\s*(?:-\s+)?uses:\s+([^\s#]+)/gmu;

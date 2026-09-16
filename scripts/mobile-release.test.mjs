@@ -10,7 +10,22 @@ import {
   readMobileIdentity,
   requireCurrentMobileIdentity,
   requireMonotonicMobileIdentity,
+  requireReleaseMobileIdentity,
 } from "./mobile-release.mjs";
+
+test("server-only releases keep the released mobile identity", () => {
+  const released = { version_name: "0.2.0", version_code: 2 };
+  requireReleaseMobileIdentity({ ...released }, released, false);
+  assert.throws(
+    () => requireReleaseMobileIdentity({ version_name: "0.2.1", version_code: 3 }, released, false),
+    /must stay at the released identity/,
+  );
+  requireReleaseMobileIdentity({ version_name: "0.2.1", version_code: 3 }, released, true);
+  assert.throws(
+    () => requireReleaseMobileIdentity({ ...released }, released, true),
+    /must be greater than released code/,
+  );
+});
 
 test("reads one intentional mobile identity from Expo and package metadata", () => {
   assert.deepEqual(

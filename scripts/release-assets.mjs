@@ -24,6 +24,10 @@ export const expectedReleaseAssets = Object.freeze([
   "openpost-app-android.apk",
 ]);
 
+export const coreReleaseAssets = Object.freeze(
+  expectedReleaseAssets.filter((name) => name !== "openpost-app-android.apk"),
+);
+
 function normalizeNotes(value) {
   return String(value ?? "")
     .replaceAll("\r\n", "\n")
@@ -58,7 +62,7 @@ export function validateRelease(release, options) {
     return problems;
   }
 
-  const expected = new Set(expectedReleaseAssets);
+  const expected = new Set(options.core === true ? coreReleaseAssets : expectedReleaseAssets);
   const seen = new Set();
   for (const asset of release.assets) {
     const name = asset?.name;
@@ -90,7 +94,7 @@ function option(name) {
 async function main() {
   if (process.argv[2] !== "verify") {
     throw new Error(
-      "usage: release-assets.mjs verify --release-json FILE --tag TAG --notes-file FILE [--complete] [--published]",
+      "usage: release-assets.mjs verify --release-json FILE --tag TAG --notes-file FILE [--complete] [--core] [--published]",
     );
   }
   const releaseJSON = option("--release-json");
@@ -103,15 +107,17 @@ async function main() {
     readFile(releaseJSON, "utf8"),
     readFile(notesFile, "utf8"),
   ]);
+  const core = process.argv.includes("--core");
   const problems = validateRelease(JSON.parse(releaseSource), {
     tag,
     notes,
-    complete: process.argv.includes("--complete"),
+    complete: process.argv.includes("--complete") || core,
+    core,
     published: process.argv.includes("--published"),
   });
   if (problems.length > 0) throw new Error(problems.join("; "));
   console.log(
-    `Verified ${process.argv.includes("--published") ? "published" : "draft"} release ${tag} with ${process.argv.includes("--complete") ? "all" : "only expected"} assets.`,
+    `Verified ${process.argv.includes("--published") ? "published" : "draft"} release ${tag} with ${core ? "core" : process.argv.includes("--complete") ? "all" : "only expected"} assets.`,
   );
 }
 

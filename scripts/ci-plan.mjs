@@ -16,20 +16,25 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export function planCI(files, manifest, { full = false, release = false } = {}) {
   if (release) {
+    // Release candidates must prove the full core product on their own tag.
+    // A green path-filtered main run is not proof: it may have been canceled
+    // or skipped the backend/security gates that this candidate inherits.
+    // Core gates therefore always run; distributions follow the tag diff so a
+    // server-only release neither builds nor waits for Android/n8n packaging.
+    const filtered = planFiltered(files, manifest);
     return {
+      ...filtered,
       application: true,
-      backend: false,
-      frontend: false,
-      marketing: false,
-      documentation: false,
-      cli: false,
-      n8n: false,
-      security: false,
+      backend: true,
+      frontend: true,
+      security: true,
       image: true,
-      android: true,
-      cache_contract: false,
     };
   }
+  return planFiltered(files, manifest, { full });
+}
+
+function planFiltered(files, manifest, { full = false } = {}) {
   const touched = new Set(files.flatMap((file) => classifyReleasePath(file, manifest).surfaces));
   const delivery = full || touched.has("delivery");
   const sharedAssets = manifest.surfaces["shared-assets"].prefixes;
@@ -143,7 +148,7 @@ function main() {
       .join("\n");
     appendFileSync(
       summary,
-      `## CI surface plan\n\n${release ? "Release artifact candidate." : full ? "Full main candidate." : `${files.length} changed path(s).`}\n\n| Check | Decision |\n| --- | --- |\n${rows}\n`,
+      `## CI surface plan\n\n${release ? `Release candidate: core gates forced, distributions from ${files.length} changed path(s) since the previous tag.` : full ? "Full main candidate." : `${files.length} changed path(s).`}\n\n| Check | Decision |\n| --- | --- |\n${rows}\n`,
     );
   }
 }

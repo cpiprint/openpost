@@ -107,19 +107,35 @@ test("main candidates always run the complete matrix", () => {
   assert.equal(plan.cache_contract, false);
 });
 
-test("release tags only rebuild the artifacts consumed by the release workflow", () => {
-  const plan = planCI([], manifest, { release: true });
-  assert.deepEqual(plan, {
+test("release tags prove the full core candidate while distributions follow the tag diff", () => {
+  const serverOnly = planCI(["apps/server/internal/api/handlers/foo.go"], manifest, {
+    release: true,
+  });
+  assert.deepEqual(serverOnly, {
     application: true,
-    backend: false,
-    frontend: false,
+    backend: true,
+    frontend: true,
     marketing: false,
     documentation: false,
     cli: false,
     n8n: false,
-    security: false,
+    security: true,
     image: true,
-    android: true,
+    android: false,
     cache_contract: false,
   });
+
+  const mobile = planCI(["apps/mobile/src/app/(tabs)/drafts.tsx"], manifest, {
+    release: true,
+  });
+  assert.equal(mobile.android, true);
+  assert.equal(mobile.backend, true);
+  assert.equal(mobile.image, true);
+
+  // A canceled server run followed by a release-only commit cannot hide
+  // missing core proof: core gates run even when the diff is release-only.
+  const releaseOnly = planCI(["CHANGELOG.md"], manifest, { release: true });
+  assert.equal(releaseOnly.backend, true);
+  assert.equal(releaseOnly.frontend, true);
+  assert.equal(releaseOnly.security, true);
 });

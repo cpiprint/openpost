@@ -37,6 +37,18 @@ function asset(name) {
   return { name, state: "uploaded", size: 42 };
 }
 
+test("a server-only release publishes its core assets without Android packaging", () => {
+  const core = downloads.filter((name) => name !== "openpost-app-android.apk");
+  assert.deepEqual(
+    validateRelease(release({ assets: core.map(asset) }), { tag, notes, core: true }),
+    [],
+  );
+  assert.ok(
+    validateRelease(release({ assets: core.map(asset) }), { tag, notes, complete: true }).length >
+      0,
+  );
+});
+
 test("a consistent draft can be reused while its expected assets are partial", () => {
   assert.deepEqual(
     validateRelease(
