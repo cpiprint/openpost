@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Connect Telegram channels and groups through an instance-owned bot: post a one-time command inside the chat, then schedule text and media messages from OpenPost.
 - Drag video-editor sidebar content straight onto the timeline: backgrounds, stickers, stock assets, and Lottie animations now land on the hovered track at the drop frame with a live placement preview, and saved AI voice and music previews drag out as audio clips.
 
 ## [4.34.2] - 2026-09-16
