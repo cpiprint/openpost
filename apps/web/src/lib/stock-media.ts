@@ -3,6 +3,7 @@ import type { components } from '$lib/api/types';
 import { stockProvidersQueryOptions, stockSearchQueryOptions } from '@openpost/query-catalog';
 import { mediaQueryAPI } from '$lib/query/media';
 import { queryClient } from '$lib/query/client';
+import type { MediaAttribution } from '$lib/video-editor/media/types';
 
 export type StockProvider = components['schemas']['StockProviderResponse'];
 export type StockSearchPage = components['schemas']['SearchPage'];
@@ -136,7 +137,7 @@ async function readBlobWithinLimit(response: Response, maximumBytes: number): Pr
 }
 
 export async function downloadStockAsset(
-	asset: StockAsset,
+	asset: Pick<StockAsset, 'provider' | 'external_id'>,
 	resolved: ResolvedStockAsset,
 	fetcher: typeof fetch = fetch
 ): Promise<File> {
@@ -162,6 +163,17 @@ export async function downloadStockAsset(
 		}
 		throw new StockMediaDownloadError('download-failed');
 	}
+}
+
+export function stockAssetAttribution(asset: StockAsset): MediaAttribution {
+	return {
+		provider: asset.provider,
+		author: asset.creator_name,
+		authorUrl: asset.creator_url,
+		sourceId: asset.external_id,
+		license: asset.license_name,
+		licenseUrl: asset.license_url
+	};
 }
 
 function parseStockProviderID(provider: string): StockProviderID {

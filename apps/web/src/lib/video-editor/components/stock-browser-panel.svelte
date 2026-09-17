@@ -3,9 +3,11 @@
 	import StockMediaBrowser from '$lib/components/stock-media-browser.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { StockAsset } from '$lib/stock-media';
+	import { stockAssetAttribution } from '$lib/stock-media';
 	import { showToast } from '$lib/toast';
 	import { commitImportedAsset } from '$lib/video-editor/media/commit-imported-asset';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
+	import { clearStockDragData, writeStockDragData } from '$lib/video-editor/media/stock-drag';
 
 	let {
 		projectId,
@@ -20,14 +22,12 @@
 	} = $props();
 
 	function stockAttribution(asset: StockAsset) {
-		return {
-			provider: asset.provider,
-			author: asset.creator_name,
-			authorUrl: asset.creator_url,
-			sourceId: asset.external_id,
-			license: asset.license_name,
-			licenseUrl: asset.license_url
-		};
+		return stockAssetAttribution(asset);
+	}
+
+	function startDrag(event: DragEvent, asset: StockAsset): void {
+		if (!event.dataTransfer) return;
+		writeStockDragData(event.dataTransfer, asset);
 	}
 
 	async function addStock(file: File, asset: StockAsset): Promise<void> {
@@ -51,6 +51,8 @@
 		compact
 		actionLabel={m.video_editor_stock_add_playhead()}
 		onSelect={addStock}
+		onDragStart={startDrag}
+		onDragEnd={clearStockDragData}
 		{services}
 	/>
 </div>

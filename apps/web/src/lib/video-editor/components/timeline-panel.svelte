@@ -344,6 +344,13 @@
 	} from '$lib/video-editor/stickers/fluent-emoji';
 	import { commitImportedAsset } from '$lib/video-editor/media/commit-imported-asset';
 	import {
+		clearStockDragData,
+		getActiveStockAsset,
+		getStockDragData,
+		type StockDragData
+	} from '$lib/video-editor/media/stock-drag';
+	import { downloadStockAsset, resolveStockAsset, stockAssetAttribution } from '$lib/stock-media';
+	import {
 		evaluateExactMediaPlacement,
 		mediaDropAutoScrollDelta,
 		mediaDurationInFrames,
@@ -864,6 +871,13 @@
 		label: string;
 	} | null>(null);
 	let stickerDropPending = $state(false);
+	let stockDropPreview = $state<{
+		trackId: string;
+		from: number;
+		durationInFrames: number;
+		label: string;
+	} | null>(null);
+	let stockDropPending = $state(false);
 	let mediaDropPreview = $state<{
 		trackId: string;
 		secondaryTrackId: string | null;
@@ -2485,6 +2499,110 @@
 		}
 		void commitStickerDrop(payload.name, payload.label, preview.from, preview.trackId);
 		return true;
+	}
+
+	function stockDropDuration(payload: StockDragData): number {
+		if (payload.kind === 'video' && payload.durationSeconds) {
+			return Math.max(1, Math.round(payload.durationSeconds * timelineStore.fps));
+		}
+		return Math.max(1, timelineStore.fps * 3);
+	}
+
+	function previewStockDrop(event: DragEvent, trackId: string): boolean {
+		const payload = getStockDragData(event.dataTransfer);
+		if (!payload) return false;
+		if (!projectId || stockDropPending) {
+			stockDropPreview = null;
+			return true;
+		}
+		const durationInFrames = stockDropDuration(payload);
+		const from = sceneFrameAtPointer(event);
+		const result = evaluateExactMediaPlacement({
+			trackId,
+			from,
+			durationInFrames,
+			kind: 'video',
+			tracks: timelineStore.tracks,
+			items: timelineStore.items
+		});
+		if (!result.valid) {
+			stockDropPreview = null;
+			if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
+			return true;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+		stockDropPreview = {
+			trackId,
+			from: result.placement.from,
+			durationInFrames,
+			label: payload.label
+		};
+		return true;
+	}
+
+	function leaveStockDrop(event: DragEvent): void {
+		if (!(event.currentTarget instanceof HTMLElement)) return;
+		if (isDragPointInsideElement(event, event.currentTarget)) return;
+		stockDropPreview = null;
+	}
+
+	function dropStock(event: DragEvent, trackId: string): boolean {
+		const payload = getStockDragData(event.dataTransfer);
+		if (!payload) return false;
+		const preview = stockDropPreview;
+		stockDropPreview = null;
+		event.preventDefault();
+		event.stopPropagation();
+		if (!preview || preview.trackId !== trackId || !projectId || stockDropPending) {
+			clearStockDragData();
+			return true;
+		}
+		void commitStockDrop(payload, preview.from, preview.trackId);
+		return true;
+	}
+
+	async function commitStockDrop(
+		payload: StockDragData,
+		from: number,
+		trackId: string
+	): Promise<void> {
+		stockDropPending = true;
+		try {
+			if (!projectId) throw new Error('The project is not ready for stock imports.');
+			const asset = getActiveStockAsset(payload.provider, payload.externalId);
+			const resolved = await resolveStockAsset(payload.provider, payload.externalId);
+			const file = await downloadStockAsset(
+				asset ?? { provider: payload.provider, external_id: payload.externalId },
+				resolved
+			);
+			const committed = await commitImportedAsset(file, {
+				projectId,
+				attribution: asset
+					? stockAssetAttribution(asset)
+					: {
+							provider: payload.provider,
+							author: payload.author,
+							authorUrl: payload.authorUrl,
+							sourceId: payload.externalId,
+							license: payload.license ?? '',
+							licenseUrl: payload.licenseUrl
+						},
+				tags: ['stock', payload.provider],
+				insertAtFrame: from,
+				label: payload.label,
+				exactTrackId: trackId
+			});
+			selectedItemId = committed.itemId;
+			selectedItemIds = [committed.itemId];
+			clearStockDragData();
+			onedit();
+		} catch {
+			emitEditorSound('error', editorSession.clock.isPlaying);
+		} finally {
+			stockDropPending = false;
+		}
 	}
 
 	async function commitStickerDrop(
@@ -5899,6 +6017,7 @@
 												!previewMediaDrop(event, track.id) &&
 												!previewGeneratedItemDrop(event, track.id) &&
 												!previewStickerDrop(event, track.id) &&
+												!previewStockDrop(event, track.id) &&
 												!previewEffectAdjustmentDrop(event, track.id)
 											) {
 												previewSceneDrop(event, track.id);
@@ -5911,6 +6030,7 @@
 												!previewMediaDrop(event, track.id) &&
 												!previewGeneratedItemDrop(event, track.id) &&
 												!previewStickerDrop(event, track.id) &&
+												!previewStockDrop(event, track.id) &&
 												!previewEffectAdjustmentDrop(event, track.id)
 											) {
 												previewSceneDrop(event, track.id);
@@ -5922,6 +6042,7 @@
 											leaveMediaDrop(event);
 											leaveGeneratedItemDrop(event);
 											leaveStickerDrop(event);
+											leaveStockDrop(event);
 											leaveEffectAdjustmentDrop(event);
 											leaveSceneDrop(event);
 										}}
@@ -5931,6 +6052,7 @@
 											if (
 												!dropMedia(event, track.id) &&
 												!dropSticker(event, track.id) &&
+												!dropStock(event, track.id) &&
 												!dropGeneratedItem(event, track.id) &&
 												!dropEffectAdjustment(event, track.id)
 											) {
@@ -6048,6 +6170,19 @@
 										data-sticker-drop-preview
 									>
 										<span class="block truncate">{stickerDropPreview.label}</span>
+									</div>
+								{/if}
+								{#if stockDropPreview?.trackId === track.id}
+									<div
+										class="pointer-events-none absolute top-1 z-20 flex h-[calc(100%-8px)] items-center overflow-hidden rounded-sm border border-dashed border-sky-300 bg-sky-950/80 px-2 py-1 text-xs text-white shadow-lg"
+										style={clipStyle({
+											from: stockDropPreview.from,
+											durationInFrames: stockDropPreview.durationInFrames,
+											type: 'video'
+										})}
+										data-stock-drop-preview
+									>
+										<span class="block truncate">{stockDropPreview.label}</span>
 									</div>
 								{/if}
 								{#if effectAdjustmentDropPreview?.trackId === track.id}

@@ -24,6 +24,8 @@
 		actionLabel?: string;
 		compact?: boolean;
 		onSelect: (file: File, asset: StockAsset) => void | Promise<void>;
+		onDragStart?: (event: DragEvent, asset: StockAsset) => void;
+		onDragEnd?: () => void;
 		services?: StockMediaServices;
 	}
 	interface StockMediaServices {
@@ -42,6 +44,8 @@
 		actionLabel = m.stock_media_use(),
 		compact = false,
 		onSelect,
+		onDragStart,
+		onDragEnd,
 		services = {
 			listProviders: listStockProviders,
 			search: searchStockMedia,
@@ -591,7 +595,12 @@
 					: 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4'}
 			>
 				{#each results as asset (`${asset.provider}:${asset.external_id}`)}
-					<article class="group min-w-0 overflow-hidden rounded-xl border bg-card">
+					<article
+						class="group min-w-0 cursor-grab overflow-hidden rounded-xl border bg-card active:cursor-grabbing"
+						draggable={onDragStart !== undefined && !selecting}
+						ondragstart={onDragStart ? (event) => onDragStart(event, asset) : undefined}
+						ondragend={onDragEnd}
+					>
 						<div class="relative aspect-[4/3] overflow-hidden bg-muted">
 							{#if asset.thumbnail_url}
 								<img
