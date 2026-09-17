@@ -67,7 +67,7 @@ describe('stock drag payload', () => {
 	});
 
 	it('exposes the active asset for same-document drops', () => {
-		writeStockDragData(transferWriter({}), photo);
+		writeStockDragData(transferWriter({ format: '', data: '' }), photo);
 		expect(getActiveStockAsset('pexels', '123')).toBe(photo);
 		expect(getActiveStockAsset('pexels', 'other')).toBeNull();
 		clearStockDragData();

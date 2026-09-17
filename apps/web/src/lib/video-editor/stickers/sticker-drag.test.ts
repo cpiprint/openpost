@@ -60,7 +60,7 @@ describe('sticker drag payload', () => {
 			getData: () => ''
 		};
 		expect(getStickerDragData(reader)).toBeNull();
-		writeStickerDragData(transferWriter({}), sticker);
+		writeStickerDragData(transferWriter({ format: '', data: '' }), sticker);
 		expect(getStickerDragData(reader)).toMatchObject({ name: 'fire' });
 	});
 });

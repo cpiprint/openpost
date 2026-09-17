@@ -59,7 +59,7 @@ describe('lottie drag payload', () => {
 	});
 
 	it('exposes the active animation for same-document drops', () => {
-		writeLottieDragData(transferWriter({}), animation);
+		writeLottieDragData(transferWriter({ format: '', data: '' }), animation);
 		expect(getActiveLottieAnimation('abc123')).toBe(animation);
 		expect(getActiveLottieAnimation('other')).toBeNull();
 		clearLottieDragData();
