@@ -1,11 +1,46 @@
 import { describe, expect, it } from 'vitest';
 import type { FluentEmojiSticker } from './fluent-emoji';
-import { getStickerDragData, parseStickerDragData, writeStickerDragData } from './sticker-drag';
+import {
+	clearStickerDragData,
+	getStickerDragData,
+	parseStickerDragData,
+	writeStickerDragData,
+	type StickerDataTransfer
+} from './sticker-drag';
+
+const sticker: FluentEmojiSticker = {
+	name: 'fire',
+	label: 'Fire',
+	body: '<g/>',
+	width: 32,
+	height: 32,
+	icon: { body: '<g/>' }
+};
+
+interface SeenTransfer {
+	format: string;
+	data: string;
+}
+
+function transferWriter(seen: SeenTransfer): StickerDataTransfer {
+	return {
+		effectAllowed: 'uninitialized',
+		setData: (format, data) => {
+			seen.format = format;
+			seen.data = data;
+		},
+		getData: () => ''
+	};
+}
 
 describe('sticker drag payload', () => {
 	it('round-trips a sticker payload', () => {
-		const raw = JSON.stringify({ version: 1, name: 'fire', label: 'Fire' });
-		expect(parseStickerDragData(raw)).toMatchObject({ name: 'fire', label: 'Fire' });
+		const seen: SeenTransfer = { format: '', data: '' };
+		writeStickerDragData(transferWriter(seen), sticker);
+		expect(parseStickerDragData(seen.data)).toMatchObject({
+			name: 'fire',
+			label: 'Fire'
+		});
 	});
 
 	it('rejects malformed payloads', () => {
@@ -18,10 +53,14 @@ describe('sticker drag payload', () => {
 	});
 
 	it('falls back to the active drag when the transfer payload is missing', () => {
-		const transfer = { getData: () => '' } as unknown as DataTransfer;
-		expect(getStickerDragData(transfer)).toBeNull();
-		const writer = { setData: () => {}, getData: () => '' } as unknown as DataTransfer;
-		writeStickerDragData(writer, { name: 'fire', label: 'Fire' } as FluentEmojiSticker);
-		expect(getStickerDragData(transfer)).toMatchObject({ name: 'fire' });
+		clearStickerDragData();
+		const reader: StickerDataTransfer = {
+			effectAllowed: 'uninitialized',
+			setData: () => {},
+			getData: () => ''
+		};
+		expect(getStickerDragData(reader)).toBeNull();
+		writeStickerDragData(transferWriter({}), sticker);
+		expect(getStickerDragData(reader)).toMatchObject({ name: 'fire' });
 	});
 });

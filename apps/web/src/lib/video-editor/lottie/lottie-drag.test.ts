@@ -5,23 +5,45 @@ import {
 	getActiveLottieAnimation,
 	getLottieDragData,
 	parseLottieDragData,
-	writeLottieDragData
+	writeLottieDragData,
+	type LottieDataTransfer
 } from './lottie-drag';
 
-const animation = {
+const animation: LottieFilesAnimation = {
 	id: 'abc123',
 	name: 'Confetti',
-	lottieUrl: 'https://assets-v2.lottiefiles.com/abc.json'
-} as LottieFilesAnimation;
+	lottieUrl: 'https://assets-v2.lottiefiles.com/abc.json',
+	gifUrl: null,
+	bgColor: null,
+	author: null,
+	authorPath: null
+};
+
+interface SeenTransfer {
+	format: string;
+	data: string;
+}
+
+function transferWriter(seen: SeenTransfer): LottieDataTransfer {
+	return {
+		effectAllowed: 'uninitialized',
+		setData: (format, data) => {
+			seen.format = format;
+			seen.data = data;
+		},
+		getData: () => ''
+	};
+}
 
 describe('lottie drag payload', () => {
 	it('round-trips a lottie payload', () => {
-		const writer = { setData: () => {} } as unknown as DataTransfer;
-		writeLottieDragData(writer, animation);
-		const reader = {
-			getData: () =>
-				JSON.stringify({ version: 1, id: 'abc123', label: 'Confetti', url: animation.lottieUrl })
-		} as unknown as DataTransfer;
+		const seen: SeenTransfer = { format: '', data: '' };
+		writeLottieDragData(transferWriter(seen), animation);
+		const reader: LottieDataTransfer = {
+			effectAllowed: 'uninitialized',
+			setData: () => {},
+			getData: () => seen.data
+		};
 		expect(getLottieDragData(reader)).toMatchObject({ id: 'abc123' });
 		expect(parseLottieDragData('')).toBeNull();
 	});
@@ -37,8 +59,7 @@ describe('lottie drag payload', () => {
 	});
 
 	it('exposes the active animation for same-document drops', () => {
-		const writer = { setData: () => {} } as unknown as DataTransfer;
-		writeLottieDragData(writer, animation);
+		writeLottieDragData(transferWriter({}), animation);
 		expect(getActiveLottieAnimation('abc123')).toBe(animation);
 		expect(getActiveLottieAnimation('other')).toBeNull();
 		clearLottieDragData();

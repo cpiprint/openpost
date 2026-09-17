@@ -4,6 +4,13 @@ import type { LottieFilesAnimation } from './lottiefiles-api';
 
 export const LOTTIE_DRAG_MIME = 'application/x-openpost-lottie-v1';
 
+/** Minimal transfer surface so drag sources stay testable without DOM fixtures. */
+export interface LottieDataTransfer {
+	effectAllowed: DataTransfer['effectAllowed'];
+	setData(format: string, data: string): void;
+	getData(format: string): string;
+}
+
 const LOTTIE_DRAG_VERSION = 1;
 
 export interface LottieDragData {
@@ -42,7 +49,7 @@ export function parseLottieDragData(raw: string): LottieDragData | null {
 }
 
 export function writeLottieDragData(
-	dataTransfer: DataTransfer,
+	dataTransfer: LottieDataTransfer,
 	animation: LottieFilesAnimation
 ): void {
 	activeLottieDrag = {
@@ -56,7 +63,7 @@ export function writeLottieDragData(
 	dataTransfer.setData(LOTTIE_DRAG_MIME, JSON.stringify(activeLottieDrag));
 }
 
-export function getLottieDragData(dataTransfer?: DataTransfer | null): LottieDragData | null {
+export function getLottieDragData(dataTransfer?: LottieDataTransfer | null): LottieDragData | null {
 	const transferred = dataTransfer?.getData(LOTTIE_DRAG_MIME);
 	return parseLottieDragData(transferred ?? '') ?? activeLottieDrag;
 }

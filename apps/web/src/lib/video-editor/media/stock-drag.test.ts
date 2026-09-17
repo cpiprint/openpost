@@ -5,9 +5,12 @@ import {
 	getActiveStockAsset,
 	getStockDragData,
 	parseStockDragData,
-	writeStockDragData
+	writeStockDragData,
+	type StockDataTransfer
 } from './stock-drag';
 
+// SAFETY: the drag payload only reads provider, external_id, title, kind, and
+// dimensions; the remaining generated Asset fields are never touched here.
 const photo = {
 	provider: 'pexels',
 	external_id: '123',
@@ -17,21 +20,27 @@ const photo = {
 	height: 1080
 } as StockAsset;
 
+interface SeenTransfer {
+	format: string;
+	data: string;
+}
+
+function transferWriter(seen: SeenTransfer): StockDataTransfer {
+	return {
+		effectAllowed: 'uninitialized',
+		setData: (format, data) => {
+			seen.format = format;
+			seen.data = data;
+		},
+		getData: () => ''
+	};
+}
+
 describe('stock drag payload', () => {
 	it('round-trips a stock payload', () => {
-		const writer = { setData: () => {} } as unknown as DataTransfer;
-		writeStockDragData(writer, photo);
-		const reader = {
-			getData: () =>
-				JSON.stringify({
-					version: 1,
-					provider: 'pexels',
-					externalId: '123',
-					label: 'Mountain',
-					kind: 'photo'
-				})
-		} as unknown as DataTransfer;
-		expect(getStockDragData(reader)).toMatchObject({
+		const seen: SeenTransfer = { format: '', data: '' };
+		writeStockDragData(transferWriter(seen), photo);
+		expect(parseStockDragData(seen.data)).toMatchObject({
 			provider: 'pexels',
 			externalId: '123',
 			kind: 'photo'
@@ -58,8 +67,7 @@ describe('stock drag payload', () => {
 	});
 
 	it('exposes the active asset for same-document drops', () => {
-		const writer = { setData: () => {} } as unknown as DataTransfer;
-		writeStockDragData(writer, photo);
+		writeStockDragData(transferWriter({}), photo);
 		expect(getActiveStockAsset('pexels', '123')).toBe(photo);
 		expect(getActiveStockAsset('pexels', 'other')).toBeNull();
 		clearStockDragData();

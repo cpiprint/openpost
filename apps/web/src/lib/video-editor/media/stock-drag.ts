@@ -4,6 +4,13 @@ import type { StockAsset } from '$lib/stock-media';
 
 export const STOCK_DRAG_MIME = 'application/x-openpost-stock-v1';
 
+/** Minimal transfer surface so drag sources stay testable without DOM fixtures. */
+export interface StockDataTransfer {
+	effectAllowed: DataTransfer['effectAllowed'];
+	setData(format: string, data: string): void;
+	getData(format: string): string;
+}
+
 const STOCK_DRAG_VERSION = 1;
 
 export type StockDragKind = 'photo' | 'video';
@@ -72,7 +79,7 @@ export function parseStockDragData(raw: string): StockDragData | null {
 	}
 }
 
-export function writeStockDragData(dataTransfer: DataTransfer, asset: StockAsset): void {
+export function writeStockDragData(dataTransfer: StockDataTransfer, asset: StockAsset): void {
 	activeStockDrag = {
 		version: STOCK_DRAG_VERSION,
 		provider: asset.provider,
@@ -92,7 +99,7 @@ export function writeStockDragData(dataTransfer: DataTransfer, asset: StockAsset
 	dataTransfer.setData(STOCK_DRAG_MIME, JSON.stringify(activeStockDrag));
 }
 
-export function getStockDragData(dataTransfer?: DataTransfer | null): StockDragData | null {
+export function getStockDragData(dataTransfer?: StockDataTransfer | null): StockDragData | null {
 	const transferred = dataTransfer?.getData(STOCK_DRAG_MIME);
 	return parseStockDragData(transferred ?? '') ?? activeStockDrag;
 }

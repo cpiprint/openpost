@@ -4,6 +4,13 @@ import type { FluentEmojiSticker } from './fluent-emoji';
 
 export const STICKER_DRAG_MIME = 'application/x-openpost-sticker-v1';
 
+/** Minimal transfer surface so drag sources stay testable without DOM fixtures. */
+export interface StickerDataTransfer {
+	effectAllowed: DataTransfer['effectAllowed'];
+	setData(format: string, data: string): void;
+	getData(format: string): string;
+}
+
 const STICKER_DRAG_VERSION = 1;
 
 export interface StickerDragData {
@@ -40,7 +47,7 @@ export function parseStickerDragData(raw: string): StickerDragData | null {
 }
 
 export function writeStickerDragData(
-	dataTransfer: DataTransfer,
+	dataTransfer: StickerDataTransfer,
 	sticker: FluentEmojiSticker
 ): void {
 	activeStickerDrag = { version: STICKER_DRAG_VERSION, name: sticker.name, label: sticker.label };
@@ -49,7 +56,9 @@ export function writeStickerDragData(
 	dataTransfer.setData(STICKER_DRAG_MIME, JSON.stringify(activeStickerDrag));
 }
 
-export function getStickerDragData(dataTransfer?: DataTransfer | null): StickerDragData | null {
+export function getStickerDragData(
+	dataTransfer?: StickerDataTransfer | null
+): StickerDragData | null {
 	const transferred = dataTransfer?.getData(STICKER_DRAG_MIME);
 	return parseStickerDragData(transferred ?? '') ?? activeStickerDrag;
 }
