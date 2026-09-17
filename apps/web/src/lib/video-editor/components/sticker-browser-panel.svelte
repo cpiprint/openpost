@@ -17,6 +17,10 @@
 		type FluentEmojiCatalog,
 		type FluentEmojiSticker
 	} from '$lib/video-editor/stickers/fluent-emoji';
+	import {
+		clearStickerDragData,
+		writeStickerDragData
+	} from '$lib/video-editor/stickers/sticker-drag';
 
 	const PAGE_SIZE = 60;
 	let {
@@ -58,6 +62,11 @@
 			error = cause instanceof Error ? cause.message : m.video_editor_stickers_load_failed();
 			status = 'error';
 		}
+	}
+
+	function startDrag(event: DragEvent, sticker: FluentEmojiSticker): void {
+		if (!event.dataTransfer) return;
+		writeStickerDragData(event.dataTransfer, sticker);
 	}
 
 	async function addSticker(sticker: FluentEmojiSticker): Promise<void> {
@@ -132,11 +141,14 @@
 					{#each visible as sticker (sticker.name)}
 						<button
 							type="button"
-							class="group relative flex min-h-20 flex-col items-center justify-center gap-1 overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1.5 text-center hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-panel)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-60"
+							class="group relative flex min-h-20 cursor-grab flex-col items-center justify-center gap-1 overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1.5 text-center hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-panel)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] active:cursor-grabbing disabled:opacity-60"
+							draggable="true"
 							disabled={Boolean(inserting)}
 							aria-label={m.video_editor_sticker_add({ name: sticker.label })}
 							title={m.video_editor_sticker_add({ name: sticker.label })}
 							onclick={() => addSticker(sticker)}
+							ondragstart={(event) => startDrag(event, sticker)}
+							ondragend={clearStickerDragData}
 						>
 							<img
 								src={fluentEmojiStickerPreviewUrl(sticker)}

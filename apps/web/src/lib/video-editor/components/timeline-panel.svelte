@@ -333,6 +333,17 @@
 	} from '$lib/video-editor/media/media-drag';
 	import { mediaPlacement } from '$lib/video-editor/media/media-placement.svelte';
 	import {
+		clearStickerDragData,
+		getActiveStickerForDrag,
+		getStickerDragData
+	} from '$lib/video-editor/stickers/sticker-drag';
+	import {
+		fluentEmojiAttribution,
+		fluentEmojiStickerFile,
+		loadFluentEmojiCatalog
+	} from '$lib/video-editor/stickers/fluent-emoji';
+	import { commitImportedAsset } from '$lib/video-editor/media/commit-imported-asset';
+	import {
 		evaluateExactMediaPlacement,
 		mediaDropAutoScrollDelta,
 		mediaDurationInFrames,
@@ -380,6 +391,7 @@
 		aiCaptionPendingItemIds = [],
 		canvasWidth = 1920,
 		canvasHeight = 1080,
+		projectId = null,
 		selectedItemId = $bindable(null),
 		selectedItemIds = $bindable([]),
 		selectedTransitionId = $bindable(null)
@@ -413,6 +425,7 @@
 		aiCaptionPendingItemIds?: readonly string[];
 		canvasWidth?: number;
 		canvasHeight?: number;
+		projectId?: string | null;
 		selectedItemId?: string | null;
 		selectedItemIds?: string[];
 		selectedTransitionId?: string | null;
@@ -844,6 +857,13 @@
 		durationInFrames: number;
 		label: string;
 	} | null>(null);
+	let stickerDropPreview = $state<{
+		trackId: string;
+		from: number;
+		durationInFrames: number;
+		label: string;
+	} | null>(null);
+	let stickerDropPending = $state(false);
 	let mediaDropPreview = $state<{
 		trackId: string;
 		secondaryTrackId: string | null;
@@ -2410,6 +2430,91 @@
 			emitEditorSound('error', editorSession.clock.isPlaying);
 		}
 		return true;
+	}
+
+	function previewStickerDrop(event: DragEvent, trackId: string): boolean {
+		const payload = getStickerDragData(event.dataTransfer);
+		if (!payload) return false;
+		if (!projectId || stickerDropPending) {
+			stickerDropPreview = null;
+			return true;
+		}
+		const durationInFrames = Math.max(1, timelineStore.fps * 3);
+		const from = sceneFrameAtPointer(event);
+		const result = evaluateExactMediaPlacement({
+			trackId,
+			from,
+			durationInFrames,
+			kind: 'video',
+			tracks: timelineStore.tracks,
+			items: timelineStore.items
+		});
+		if (!result.valid) {
+			stickerDropPreview = null;
+			if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
+			return true;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+		stickerDropPreview = {
+			trackId,
+			from: result.placement.from,
+			durationInFrames,
+			label: payload.label
+		};
+		return true;
+	}
+
+	function leaveStickerDrop(event: DragEvent): void {
+		if (!(event.currentTarget instanceof HTMLElement)) return;
+		if (isDragPointInsideElement(event, event.currentTarget)) return;
+		stickerDropPreview = null;
+	}
+
+	function dropSticker(event: DragEvent, trackId: string): boolean {
+		const payload = getStickerDragData(event.dataTransfer);
+		if (!payload) return false;
+		const preview = stickerDropPreview;
+		stickerDropPreview = null;
+		event.preventDefault();
+		event.stopPropagation();
+		if (!preview || preview.trackId !== trackId || !projectId || stickerDropPending) {
+			clearStickerDragData();
+			return true;
+		}
+		void commitStickerDrop(payload.name, payload.label, preview.from, preview.trackId);
+		return true;
+	}
+
+	async function commitStickerDrop(
+		name: string,
+		label: string,
+		from: number,
+		trackId: string
+	): Promise<void> {
+		stickerDropPending = true;
+		try {
+			const sticker =
+				getActiveStickerForDrag(name) ?? (await loadFluentEmojiCatalog()).byName.get(name);
+			if (!sticker || !projectId) throw new Error('The sticker is no longer available.');
+			const committed = await commitImportedAsset(fluentEmojiStickerFile(sticker), {
+				projectId,
+				attribution: fluentEmojiAttribution(sticker),
+				tags: ['sticker', 'fluent-emoji'],
+				insertAtFrame: from,
+				label,
+				exactTrackId: trackId
+			});
+			selectedItemId = committed.itemId;
+			selectedItemIds = [committed.itemId];
+			clearStickerDragData();
+			onedit();
+		} catch {
+			emitEditorSound('error', editorSession.clock.isPlaying);
+		} finally {
+			stickerDropPending = false;
+		}
 	}
 
 	function openSceneTrack(preferredTrackId: string, from: number, end: number): string | null {
@@ -5793,6 +5898,7 @@
 											if (
 												!previewMediaDrop(event, track.id) &&
 												!previewGeneratedItemDrop(event, track.id) &&
+												!previewStickerDrop(event, track.id) &&
 												!previewEffectAdjustmentDrop(event, track.id)
 											) {
 												previewSceneDrop(event, track.id);
@@ -5804,6 +5910,7 @@
 											if (
 												!previewMediaDrop(event, track.id) &&
 												!previewGeneratedItemDrop(event, track.id) &&
+												!previewStickerDrop(event, track.id) &&
 												!previewEffectAdjustmentDrop(event, track.id)
 											) {
 												previewSceneDrop(event, track.id);
@@ -5814,6 +5921,7 @@
 									: (event) => {
 											leaveMediaDrop(event);
 											leaveGeneratedItemDrop(event);
+											leaveStickerDrop(event);
 											leaveEffectAdjustmentDrop(event);
 											leaveSceneDrop(event);
 										}}
@@ -5822,6 +5930,7 @@
 									: (event) => {
 											if (
 												!dropMedia(event, track.id) &&
+												!dropSticker(event, track.id) &&
 												!dropGeneratedItem(event, track.id) &&
 												!dropEffectAdjustment(event, track.id)
 											) {
@@ -5926,6 +6035,19 @@
 										data-generated-item-drop-preview
 									>
 										<span class="block truncate">{generatedItemDropPreview.label}</span>
+									</div>
+								{/if}
+								{#if stickerDropPreview?.trackId === track.id}
+									<div
+										class="pointer-events-none absolute top-1 z-20 flex h-[calc(100%-8px)] items-center overflow-hidden rounded-sm border border-dashed border-amber-300 bg-amber-950/80 px-2 py-1 text-xs text-white shadow-lg"
+										style={clipStyle({
+											from: stickerDropPreview.from,
+											durationInFrames: stickerDropPreview.durationInFrames,
+											type: 'image'
+										})}
+										data-sticker-drop-preview
+									>
+										<span class="block truncate">{stickerDropPreview.label}</span>
 									</div>
 								{/if}
 								{#if effectAdjustmentDropPreview?.trackId === track.id}

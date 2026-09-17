@@ -9,6 +9,8 @@ export interface CommitImportedAssetOptions {
 	tags: string[];
 	insertAtFrame: number;
 	label?: string;
+	exactTrackId?: string;
+	preferredTrackId?: string;
 }
 
 /** Save a trusted external asset and insert it without leaving partial media on failure. */
@@ -25,7 +27,9 @@ export async function commitImportedAsset(
 		return {
 			media: existing,
 			itemId: insertMediaAtFrame(existing, options.insertAtFrame, {
-				label: options.label
+				label: options.label,
+				exactTrackId: options.exactTrackId,
+				preferredTrackId: options.preferredTrackId
 			})
 		};
 	}
@@ -38,7 +42,9 @@ export async function commitImportedAsset(
 		const media = mediaPool.get(mediaId);
 		if (!media) throw new Error('The imported asset did not reach the media pool.');
 		const itemId = insertMediaAtFrame(media, options.insertAtFrame, {
-			label: options.label
+			label: options.label,
+			exactTrackId: options.exactTrackId,
+			preferredTrackId: options.preferredTrackId
 		});
 		return { media, itemId };
 	} catch (error) {

@@ -3362,6 +3362,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										{aiCaptionPendingItemIds}
 										canvasWidth={renderProject?.metadata.width ?? 1920}
 										canvasHeight={renderProject?.metadata.height ?? 1080}
+										{projectId}
 										onedit={() => editorSession.scheduleAutosave()}
 										onfreezeframe={(itemId) => void handleFreezeFrame(itemId)}
 										onreverseitems={handleReverseItems}
