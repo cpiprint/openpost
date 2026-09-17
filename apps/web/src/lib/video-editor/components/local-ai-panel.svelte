@@ -9,6 +9,11 @@
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
+		clearActiveMediaDrag,
+		mediaDragData,
+		writeMediaDragData
+	} from '$lib/video-editor/media/media-drag';
+	import {
 		LOCAL_TTS_ENGINE_OPTIONS,
 		LOCAL_TTS_EXPRESSIVE_TAG_OPTIONS,
 		LOCAL_TTS_LANGUAGE_OPTIONS,
@@ -245,6 +250,16 @@
 	function remove(generation: Generation): void {
 		URL.revokeObjectURL(generation.url);
 		generations = generations.filter((candidate) => candidate.id !== generation.id);
+	}
+
+	function startPreviewDrag(event: DragEvent, generation: Generation): void {
+		if (!event.dataTransfer || generation.saving || !generation.mediaId) return;
+		// Linked voice previews keep their text-item link through the Add button only.
+		if (generation.sourceTextItemId !== undefined) return;
+		writeMediaDragData(
+			event.dataTransfer,
+			mediaDragData('media', generation.mediaId, generation.voice)
+		);
 	}
 
 	onDestroy(() => {
@@ -546,7 +561,12 @@
 				{/if}
 				{#each generations as generation (generation.id)}
 					<article
-						class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1.5"
+						class="cursor-grab rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1.5 active:cursor-grabbing"
+						draggable={generation.mediaId !== undefined &&
+							!generation.saving &&
+							generation.sourceTextItemId === undefined}
+						ondragstart={(event) => startPreviewDrag(event, generation)}
+						ondragend={clearActiveMediaDrag}
 					>
 						<div class="mb-1 flex items-center justify-between gap-1">
 							<span class="text-[10px] text-[var(--video-editor-muted)]">

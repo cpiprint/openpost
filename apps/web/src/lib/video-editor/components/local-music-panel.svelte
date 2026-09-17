@@ -9,6 +9,11 @@
 	import LocalModelCacheControl from './local-model-cache-control.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
+		clearActiveMediaDrag,
+		mediaDragData,
+		writeMediaDragData
+	} from '$lib/video-editor/media/media-drag';
+	import {
 		ACE_STEP_HIGH_DOWNLOAD_BYTES,
 		ACE_STEP_MAX_DURATION_SECONDS,
 		ACE_STEP_MIN_DURATION_SECONDS,
@@ -223,6 +228,14 @@
 	function remove(generation: Generation): void {
 		URL.revokeObjectURL(generation.url);
 		generations = generations.filter((candidate) => candidate.id !== generation.id);
+	}
+
+	function startPreviewDrag(event: DragEvent, generation: Generation): void {
+		if (!event.dataTransfer || generation.saving || !generation.mediaId) return;
+		writeMediaDragData(
+			event.dataTransfer,
+			mediaDragData('media', generation.mediaId, generation.result.prompt)
+		);
 	}
 
 	onMount(() => {
@@ -448,7 +461,10 @@
 		{/if}
 		{#each generations as generation (generation.id)}
 			<article
-				class="min-w-0 overflow-hidden rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1.5"
+				class="min-w-0 cursor-grab overflow-hidden rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1.5 active:cursor-grabbing"
+				draggable={generation.mediaId !== undefined && !generation.saving}
+				ondragstart={(event) => startPreviewDrag(event, generation)}
+				ondragend={clearActiveMediaDrag}
 			>
 				<div class="mb-1 flex items-start justify-between gap-1">
 					<div class="min-w-0">
