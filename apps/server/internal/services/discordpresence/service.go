@@ -16,7 +16,9 @@ import (
 )
 
 const (
-	defaultRotationInterval = 30 * time.Minute
+	// Discord rate-limits Gateway presence updates, so the rotation stays at
+	// seconds scale instead of firing on every tick.
+	defaultRotationInterval = 10 * time.Second
 	retryInitialDelay       = 5 * time.Second
 	retryMaxDelay           = 5 * time.Minute
 )

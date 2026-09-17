@@ -143,7 +143,7 @@ Bootstrap and data-plane settings stay deployment-only because OpenPost needs th
 
 The official hosted policy URLs and versions come from `packages/legal-policy/src/manifest.json`. Run `bun scripts/legal-policy-manifest.mjs env` to print the four non-secret environment values. Cloud startup fails closed when the configured official URLs or versions drift from that manifest, so a policy change cannot silently record acceptance against old text. A substantive Terms or Privacy change advances its version and causes existing accounts to see the acceptance screen again. Spelling, formatting, and link-only corrections keep the existing version. The Refund Policy is incorporated into the Terms and does not have a separate acceptance record.
 
-When an instance-owned Discord bot is configured, the worker keeps one Gateway connection open and publishes a rotating online presence. With no stream URL, the activity is `Watching`. Set `OPENPOST_DISCORD_PRESENCE_STREAM_URL` to an HTTPS Twitch or YouTube URL only when the activity should be `Streaming`.
+When an instance-owned Discord bot is configured, the worker keeps one Gateway connection open and publishes a rotating online presence that cycles through its activities every few seconds. With no stream URL, the activity is `Watching`. Set `OPENPOST_DISCORD_PRESENCE_STREAM_URL` to an HTTPS Twitch or YouTube URL only when the activity should be `Streaming`.
 
 ## Automatic image alt text
 
