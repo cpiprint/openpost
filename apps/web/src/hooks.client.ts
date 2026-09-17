@@ -59,8 +59,8 @@ export function initializeClientErrors(installErrorCapture: ErrorCaptureInstalle
  * browser:
  *
  * 1. **Stale deployment** - old Vite chunk hashes are no longer on the server.
- *    Any dynamic `import()` fails with "Failed to fetch dynamically imported
- *    module".
+ *    Any dynamic `import()` fails (Chrome: "Failed to fetch dynamically imported
+ *    module", Firefox: "error loading dynamically imported module").
  * 2. **Dev race (F-007)** - on the first `vite dev` load the browser requests a
  *    generated SvelteKit client node (/_app/immutable/nodes/… or
  *    .svelte-kit/generated/…) before Vite has finished transforming it. Vite

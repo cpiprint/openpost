@@ -90,6 +90,8 @@ const RELOAD_DELAYS_MS = [300, 800, 1500];
 
 export function isChunkLoadErrorMessage(message: string): boolean {
   if (message.includes("Failed to fetch dynamically imported module")) return true;
+  // Firefox reports the same stale-deployment failure with different wording.
+  if (message.toLowerCase().includes("error loading dynamically imported module")) return true;
   if (message.includes("Importing a module script failed")) return true;
   if (message.includes("Failed to fetch") && message.includes("/_app/immutable/")) return true;
   // Vite dev transform race on generated SvelteKit client nodes.

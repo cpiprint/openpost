@@ -176,6 +176,32 @@ describe('client error initialization', () => {
 		await vi.waitFor(() => expect(runtime.setTimeout).toHaveBeenCalledOnce());
 	});
 
+	it('reloads when SvelteKit reports a Firefox route chunk failure', async () => {
+		const runtime = testRuntime();
+		vi.stubGlobal('window', runtime);
+		vi.stubGlobal('navigator', { onLine: true });
+		vi.stubGlobal('sessionStorage', {
+			getItem: vi.fn(() => null),
+			setItem: vi.fn(),
+			removeItem: vi.fn()
+		});
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({ status: 404 }))
+		);
+
+		initializeClientErrors(installTestErrorCapture);
+		// SAFETY: handleError only reads error and status; the route event and message are unused here.
+		handleError({
+			error: new Error(
+				'error loading dynamically imported module: https://openpo.st/_app/immutable/chunks/route.js'
+			),
+			status: 500
+		} as Parameters<typeof handleError>[0]);
+
+		await vi.waitFor(() => expect(runtime.setTimeout).toHaveBeenCalledOnce());
+	});
+
 	it('refuses automatic reloads while the layout reports unsaved changes', async () => {
 		const runtime = testRuntime();
 		vi.stubGlobal('window', runtime);

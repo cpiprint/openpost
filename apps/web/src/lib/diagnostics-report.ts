@@ -28,6 +28,8 @@ export const MAX_BROWSER_DIAGNOSTICS_PER_SESSION = 10;
 // they must not become maintainer bug reports.
 const CHUNK_LOAD_SIGNALS = [
 	'Failed to fetch dynamically imported module',
+	// Firefox wording for the same stale-deployment failure.
+	'error loading dynamically imported module',
 	'Importing a module script failed',
 	'Loading chunk',
 	'Loading CSS chunk'

@@ -65,6 +65,16 @@ describe('normalizeBrowserFailure', () => {
 				'/publications'
 			)
 		).toBeNull();
+		// Firefox wording for the same stale-deployment failure.
+		expect(
+			normalizeBrowserFailure(
+				'unhandledrejection',
+				'TypeError',
+				'error loading dynamically imported module: https://app.example/_app/immutable/chunks/C_lq0IyJ.js',
+				undefined,
+				'/publications'
+			)
+		).toBeNull();
 	});
 
 	it('sanitizes route templates instead of sending concrete user paths', () => {

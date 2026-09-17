@@ -10,6 +10,8 @@ import {
 
 const staleMessage =
   "Failed to fetch dynamically imported module: https://marketing.openpo.st/_app/immutable/chunks/old.js?x=1#frag";
+const firefoxStaleMessage =
+  "error loading dynamically imported module: https://openpo.st/_app/immutable/chunks/C_lq0IyJ.js";
 
 function fakeRuntime(overrides: Record<string, unknown> = {}) {
   const budget: { current: ChunkRecoveryBudget | null; writes: ChunkRecoveryBudget[] } = {
@@ -53,6 +55,8 @@ describe("chunk failure classification", () => {
     expect(isChunkLoadError("Importing a module script failed")).toBe(true);
     expect(isChunkLoadError(new Error("Failed to fetch /_app/immutable/chunk.js"))).toBe(true);
     expect(isChunkLoadError(new Error("Failed to load url /_app/immutable/nodes/2.js"))).toBe(true);
+    // Firefox wording for the same stale-deployment failure.
+    expect(isChunkLoadError(new Error(firefoxStaleMessage))).toBe(true);
     expect(isChunkLoadError(new Error(" ordinary TypeError "))).toBe(false);
   });
 
@@ -64,6 +68,9 @@ describe("chunk failure classification", () => {
 
   it("keeps only a first-party immutable asset pathname and strips queries", () => {
     expect(extractFirstPartyAssetPath(staleMessage)).toBe("/_app/immutable/chunks/old.js");
+    expect(extractFirstPartyAssetPath(firefoxStaleMessage)).toBe(
+      "/_app/immutable/chunks/C_lq0IyJ.js",
+    );
     expect(extractFirstPartyAssetPath("Failed to fetch dynamically imported module")).toBe(null);
     expect(
       extractFirstPartyAssetPath(
