@@ -14,6 +14,7 @@
 		type LottieBrowseCategory,
 		type LottieFilesAnimation
 	} from '$lib/video-editor/lottie/lottiefiles-api';
+	import { clearLottieDragData, writeLottieDragData } from '$lib/video-editor/lottie/lottie-drag';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 
 	const PAGE_SIZE = 24;
@@ -97,6 +98,11 @@
 	});
 
 	onDestroy(() => controller?.abort());
+
+	function startDrag(event: DragEvent, animation: LottieFilesAnimation): void {
+		if (!event.dataTransfer) return;
+		writeLottieDragData(event.dataTransfer, animation);
+	}
 
 	async function addAnimation(animation: LottieFilesAnimation): Promise<void> {
 		if (importingIds.has(animation.id) || (importedIds.has(animation.id) && !oninserted)) return;
@@ -208,7 +214,8 @@
 					<li class="group min-w-0">
 						<button
 							type="button"
-							class="relative aspect-square w-full overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] hover:border-[var(--video-editor-focus-border)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-default"
+							class="relative aspect-square w-full cursor-grab overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] hover:border-[var(--video-editor-focus-border)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] active:cursor-grabbing disabled:cursor-default"
+							draggable="true"
 							style:background-color={animation.bgColor ?? undefined}
 							disabled={isImporting || (isImported && !oninserted)}
 							aria-label={`${
@@ -221,6 +228,8 @@
 											: m.video_editor_lottiefiles_add()
 							}: ${animation.name}`}
 							onclick={() => void addAnimation(animation)}
+							ondragstart={(event) => startDrag(event, animation)}
+							ondragend={clearLottieDragData}
 						>
 							{#if animation.gifUrl && !previewFailedIds.has(animation.id)}
 								<img

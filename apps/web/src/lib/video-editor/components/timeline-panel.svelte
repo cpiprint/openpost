@@ -351,6 +351,18 @@
 	} from '$lib/video-editor/media/stock-drag';
 	import { downloadStockAsset, resolveStockAsset, stockAssetAttribution } from '$lib/stock-media';
 	import {
+		clearLottieDragData,
+		getActiveLottieAnimation,
+		getLottieDragData,
+		type LottieDragData
+	} from '$lib/video-editor/lottie/lottie-drag';
+	import {
+		LOTTIEFILES_LICENSE,
+		LOTTIEFILES_LICENSE_URL,
+		lottieFilesAttribution
+	} from '$lib/video-editor/lottie/lottiefiles-api';
+	import { importRemoteLottie } from '$lib/video-editor/media/import.svelte';
+	import {
 		evaluateExactMediaPlacement,
 		mediaDropAutoScrollDelta,
 		mediaDurationInFrames,
@@ -878,6 +890,13 @@
 		label: string;
 	} | null>(null);
 	let stockDropPending = $state(false);
+	let lottieDropPreview = $state<{
+		trackId: string;
+		from: number;
+		durationInFrames: number;
+		label: string;
+	} | null>(null);
+	let lottieDropPending = $state(false);
 	let mediaDropPreview = $state<{
 		trackId: string;
 		secondaryTrackId: string | null;
@@ -2632,6 +2651,106 @@
 			emitEditorSound('error', editorSession.clock.isPlaying);
 		} finally {
 			stickerDropPending = false;
+		}
+	}
+
+	function previewLottieDrop(event: DragEvent, trackId: string): boolean {
+		const payload = getLottieDragData(event.dataTransfer);
+		if (!payload) return false;
+		if (!projectId || lottieDropPending) {
+			lottieDropPreview = null;
+			return true;
+		}
+		const durationInFrames = Math.max(1, timelineStore.fps * 3);
+		const from = sceneFrameAtPointer(event);
+		const result = evaluateExactMediaPlacement({
+			trackId,
+			from,
+			durationInFrames,
+			kind: 'video',
+			tracks: timelineStore.tracks,
+			items: timelineStore.items
+		});
+		if (!result.valid) {
+			lottieDropPreview = null;
+			if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
+			return true;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+		lottieDropPreview = {
+			trackId,
+			from: result.placement.from,
+			durationInFrames,
+			label: payload.label
+		};
+		return true;
+	}
+
+	function leaveLottieDrop(event: DragEvent): void {
+		if (!(event.currentTarget instanceof HTMLElement)) return;
+		if (isDragPointInsideElement(event, event.currentTarget)) return;
+		lottieDropPreview = null;
+	}
+
+	function dropLottie(event: DragEvent, trackId: string): boolean {
+		const payload = getLottieDragData(event.dataTransfer);
+		if (!payload) return false;
+		const preview = lottieDropPreview;
+		lottieDropPreview = null;
+		event.preventDefault();
+		event.stopPropagation();
+		if (!preview || preview.trackId !== trackId || !projectId || lottieDropPending) {
+			clearLottieDragData();
+			return true;
+		}
+		void commitLottieDrop(payload, preview.from, preview.trackId);
+		return true;
+	}
+
+	async function commitLottieDrop(
+		payload: LottieDragData,
+		from: number,
+		trackId: string
+	): Promise<void> {
+		lottieDropPending = true;
+		try {
+			if (!projectId) throw new Error('The project is not ready for animation imports.');
+			const animation = getActiveLottieAnimation(payload.id);
+			const existing = mediaPool.mediaList.find(
+				(media) =>
+					media.attribution?.provider === 'LottieFiles' && media.attribution.sourceId === payload.id
+			);
+			const mediaId =
+				existing?.id ??
+				(await importRemoteLottie({
+					projectId,
+					url: animation?.lottieUrl ?? payload.url,
+					fileName: animation?.name ?? payload.label,
+					attribution: animation
+						? lottieFilesAttribution(animation)
+						: {
+								provider: 'LottieFiles',
+								sourceId: payload.id,
+								license: LOTTIEFILES_LICENSE,
+								licenseUrl: LOTTIEFILES_LICENSE_URL
+							}
+				}));
+			const media = mediaPool.get(mediaId);
+			if (!media) throw new Error('The imported animation did not reach the media pool.');
+			const itemId = insertMediaAtFrame(media, from, {
+				exactTrackId: trackId,
+				label: payload.label
+			});
+			selectedItemId = itemId;
+			selectedItemIds = [itemId];
+			clearLottieDragData();
+			onedit();
+		} catch {
+			emitEditorSound('error', editorSession.clock.isPlaying);
+		} finally {
+			lottieDropPending = false;
 		}
 	}
 
@@ -6018,6 +6137,7 @@
 												!previewGeneratedItemDrop(event, track.id) &&
 												!previewStickerDrop(event, track.id) &&
 												!previewStockDrop(event, track.id) &&
+												!previewLottieDrop(event, track.id) &&
 												!previewEffectAdjustmentDrop(event, track.id)
 											) {
 												previewSceneDrop(event, track.id);
@@ -6031,6 +6151,7 @@
 												!previewGeneratedItemDrop(event, track.id) &&
 												!previewStickerDrop(event, track.id) &&
 												!previewStockDrop(event, track.id) &&
+												!previewLottieDrop(event, track.id) &&
 												!previewEffectAdjustmentDrop(event, track.id)
 											) {
 												previewSceneDrop(event, track.id);
@@ -6043,6 +6164,7 @@
 											leaveGeneratedItemDrop(event);
 											leaveStickerDrop(event);
 											leaveStockDrop(event);
+											leaveLottieDrop(event);
 											leaveEffectAdjustmentDrop(event);
 											leaveSceneDrop(event);
 										}}
@@ -6053,6 +6175,7 @@
 												!dropMedia(event, track.id) &&
 												!dropSticker(event, track.id) &&
 												!dropStock(event, track.id) &&
+												!dropLottie(event, track.id) &&
 												!dropGeneratedItem(event, track.id) &&
 												!dropEffectAdjustment(event, track.id)
 											) {
@@ -6183,6 +6306,19 @@
 										data-stock-drop-preview
 									>
 										<span class="block truncate">{stockDropPreview.label}</span>
+									</div>
+								{/if}
+								{#if lottieDropPreview?.trackId === track.id}
+									<div
+										class="pointer-events-none absolute top-1 z-20 flex h-[calc(100%-8px)] items-center overflow-hidden rounded-sm border border-dashed border-violet-300 bg-violet-950/80 px-2 py-1 text-xs text-white shadow-lg"
+										style={clipStyle({
+											from: lottieDropPreview.from,
+											durationInFrames: lottieDropPreview.durationInFrames,
+											type: 'video'
+										})}
+										data-lottie-drop-preview
+									>
+										<span class="block truncate">{lottieDropPreview.label}</span>
 									</div>
 								{/if}
 								{#if effectAdjustmentDropPreview?.trackId === track.id}
