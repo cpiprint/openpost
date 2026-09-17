@@ -7,7 +7,10 @@ import { getBackgroundPreset, clonePresetBackground } from '../../backgrounds/pr
 import { ensureOpenTrackForRange } from './track-placement';
 import { effectiveMediaTracks } from '../utils/track-groups';
 
-export function addBackgroundItem(presetId?: string): string {
+export function addBackgroundItem(
+	presetId?: string,
+	placement: { frame?: number; preferredTrackId?: string } = {}
+): string {
 	return execute('ADD_BACKGROUND_ITEM', () => {
 		if (
 			!effectiveMediaTracks(timelineStore.tracks).some(
@@ -24,14 +27,15 @@ export function addBackgroundItem(presetId?: string): string {
 		const projectHeight = editorSession.project?.metadata.height ?? 1080;
 		const id = crypto.randomUUID();
 		const label = presetId ? (getBackgroundPreset(presetId)?.label ?? 'Background') : 'Background';
-		const from = timelineStore.currentFrame;
+		const from = placement.frame ?? timelineStore.currentFrame;
 		const durationInFrames = timelineStore.fps * 3;
 		const targetTrack = ensureOpenTrackForRange({
 			kind: 'video',
 			itemType: 'background',
 			from,
 			durationInFrames,
-			label
+			label,
+			preferredTrackId: placement.preferredTrackId
 		});
 		timelineStore._addItem({
 			id,

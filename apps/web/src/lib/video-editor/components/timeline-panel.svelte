@@ -33,6 +33,7 @@
 		type GeneratedItemDragData
 	} from '$lib/video-editor/timeline/generated-item-drag';
 	import { localizedTextStylePresetCopy } from '$lib/video-editor/typography/text-style-preset-copy';
+	import { addBackgroundItem } from '$lib/video-editor/timeline/actions/backgrounds';
 	import { trackRangeIsOpen } from '$lib/video-editor/timeline/track-occupancy';
 	import { findTrackGapAtFrame } from '$lib/video-editor/timeline/gap-closing';
 	import {
@@ -2343,7 +2344,8 @@
 		}
 		const from = sceneFrameAtPointer(event);
 		const durationInFrames = timelineStore.fps * 3;
-		const itemType = payload.kind === 'shape' ? 'shape' : 'text';
+		const itemType =
+			payload.kind === 'shape' ? 'shape' : payload.kind === 'background' ? 'background' : 'text';
 		if (!trackRangeIsOpen(timelineStore.items, trackId, from, durationInFrames, itemType)) {
 			generatedItemDropPreview = null;
 			if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
@@ -2378,6 +2380,9 @@
 				frame,
 				preferredTrackId
 			});
+		}
+		if (payload.kind === 'background') {
+			return addBackgroundItem(payload.presetId, { frame, preferredTrackId });
 		}
 		return payload.presetId
 			? addTextTemplateItem(payload.presetId, localizedTextStylePresetCopy(payload.presetId), {

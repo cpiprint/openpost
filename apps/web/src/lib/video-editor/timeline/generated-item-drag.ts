@@ -3,6 +3,7 @@
 import type { ShapeType, TextStylePresetId } from '../project/types';
 import type { AddShapeItemStyle } from './actions/items';
 import { TEXT_STYLE_PRESETS } from '../typography/text-style-presets';
+import { BACKGROUND_PRESETS } from '../backgrounds/presets';
 
 export const GENERATED_ITEM_DRAG_MIME = 'application/x-openpost-generated-item-v1';
 
@@ -31,6 +32,12 @@ export type GeneratedItemDragData =
 			label: string;
 			shapeType: ShapeType;
 			style?: AddShapeItemStyle;
+	  }
+	| {
+			version: typeof GENERATED_ITEM_DRAG_VERSION;
+			kind: 'background';
+			label: string;
+			presetId: string;
 	  };
 
 let activeGeneratedItemDrag: GeneratedItemDragData | null = null;
@@ -86,6 +93,12 @@ function isGeneratedItemDragData(value: unknown): value is GeneratedItemDragData
 				TEXT_STYLE_PRESETS.some((preset) => preset.id === candidate.presetId))
 		);
 	}
+	if (candidate.kind === 'background') {
+		return (
+			typeof candidate.presetId === 'string' &&
+			BACKGROUND_PRESETS.some((preset) => preset.id === candidate.presetId)
+		);
+	}
 	return (
 		candidate.kind === 'shape' &&
 		typeof candidate.shapeType === 'string' &&
@@ -117,6 +130,18 @@ export function shapeGeneratedItemDragData(
 		label,
 		shapeType,
 		style
+	};
+}
+
+export function backgroundGeneratedItemDragData(
+	label: string,
+	presetId: string
+): GeneratedItemDragData {
+	return {
+		version: GENERATED_ITEM_DRAG_VERSION,
+		kind: 'background',
+		label,
+		presetId
 	};
 }
 

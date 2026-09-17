@@ -7,9 +7,22 @@
 	import { backgroundPresetLabel } from '../backgrounds/labels';
 	import BackgroundThumbnail from './background-thumbnail.svelte';
 	import { shaderBackgroundSupport } from '../backgrounds/shader-support.svelte';
+	import {
+		backgroundGeneratedItemDragData,
+		clearGeneratedItemDragData,
+		writeGeneratedItemDragData
+	} from '$lib/video-editor/timeline/generated-item-drag';
 
 	let search = $state('');
 	let activeId = $state<string | null>(null);
+
+	function startDrag(event: DragEvent, presetId: string): void {
+		if (!event.dataTransfer) return;
+		writeGeneratedItemDragData(
+			event.dataTransfer,
+			backgroundGeneratedItemDragData(backgroundPresetLabel(presetId), presetId)
+		);
+	}
 	const matching = $derived(
 		BACKGROUND_PRESETS.filter((preset) =>
 			backgroundPresetLabel(preset.id)
@@ -56,10 +69,13 @@
 				{#each matching.filter((preset) => (preset.background.kind === 'shader') === shaders) as preset (preset.id)}
 					<button
 						type="button"
-						class="group flex min-h-20 min-w-0 flex-col gap-1.5 rounded-md p-1 text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+						class="group flex min-h-20 min-w-0 cursor-grab flex-col gap-1.5 rounded-md p-1 text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
+						draggable="true"
 						disabled={preset.background.kind === 'shader' &&
 							!shaderBackgroundSupport.isAvailable(preset.background.shader)}
 						onclick={() => oninserted(addBackgroundItem(preset.id))}
+						ondragstart={(event) => startDrag(event, preset.id)}
+						ondragend={clearGeneratedItemDragData}
 						aria-label={backgroundPresetLabel(preset.id)}
 						onpointerenter={(event) => {
 							if (event.pointerType !== 'touch') activeId = preset.id;
